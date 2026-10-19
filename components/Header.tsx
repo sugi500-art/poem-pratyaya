@@ -13,25 +13,40 @@ export default function Header() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // ログイン状態の確認
     async function getUser() {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
 
       if (user) {
-        const { data } = await supabase
+        // プロファイル情報の取得
+        const { data, error } = await supabase
           .from('profiles')
           .select('display_name, username')
-          .eq('id', user.id)
+          .eq('id', [不審なリンクを削除しました])
           .single()
-        setProfile(data)
+
+        if (data) {
+          setProfile(data)
+        } else {
+          // プロファイルが存在しない場合、user_metadata から自動補完
+          const metaDisplayName = user.user_metadata?.display_name || [不審なリンクを削除しました]
+          const metaUsername = user.user_metadata?.username || `user_${user.id.slice(0, 8)}`
+          
+          await supabase.from('profiles').upsert({
+            id: [不審なリンクを削除しました],
+            display_name: metaDisplayName,
+            username: metaUsername,
+            role: 'user'
+          })
+
+          setProfile({ display_name: metaDisplayName, username: metaUsername })
+        }
       }
       setLoading(false)
     }
 
     getUser()
 
-    // 認証状態の変化を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
     })
@@ -39,7 +54,6 @@ export default function Header() {
     return () => subscription.unsubscribe()
   }, [supabase])
 
-  // ログアウト処理
   const handleLogout = async () => {
     await supabase.auth.signOut()
     setUser(null)
@@ -52,24 +66,21 @@ export default function Header() {
     <header className="border-b border-[#E2DDD5] bg-[#FBF9F5]/90 backdrop-blur sticky top-0 z-40 px-6 py-4 font-serif">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
         
-        {/* ロゴ */}
         <Link href="/" className="text-base font-semibold tracking-widest text-[#1A1F2C]">
           Poem pratyaya
         </Link>
 
-        {/* 右側ナビゲーション */}
         <div className="flex items-center space-x-6 text-xs font-sans">
           {loading ? (
             <span className="text-stone-400">...</span>
           ) : user ? (
-            /* ログイン時 */
             <>
-              <span className="text-stone-600 hidden sm:inline">
-                {profile?.display_name || user.email}
+              <span className="text-stone-700 font-serif font-medium hidden sm:inline">
+                {profile?.display_name || [不審なリンクを削除しました]}
               </span>
               <Link
                 href="/poems/new"
-                className="px-3 py-1.5 bg-[#1A1F2C] text-[#FBF9F5] rounded hover:bg-stone-800 transition tracking-wider"
+                className="px-3 py-1.5 bg-[#1A1F2C] text-[#FBF9F5] rounded hover:bg-stone-800 transition tracking-wider font-serif"
               >
                 一篇を紡ぐ
               </Link>
@@ -81,7 +92,6 @@ export default function Header() {
               </button>
             </>
           ) : (
-            /* 未ログイン時 */
             <>
               <Link href="/auth/login" className="text-stone-600 hover:text-[#1A1F2C] transition">
                 ログイン
