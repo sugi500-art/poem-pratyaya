@@ -19,21 +19,21 @@ export default function Header() {
 
       if (user) {
         // プロファイル情報の取得
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('profiles')
           .select('display_name, username')
-          .eq('id', [不審なリンクを削除しました])
+          .eq('id', user.id)
           .single()
 
         if (data) {
           setProfile(data)
         } else {
-          // プロファイルが存在しない場合、user_metadata から自動補完
-          const metaDisplayName = user.user_metadata?.display_name || [不審なリンクを削除しました]
+          // プロファイルが存在しない場合の自動補完
+          const metaDisplayName = user.user_metadata?.display_name || user.email
           const metaUsername = user.user_metadata?.username || `user_${user.id.slice(0, 8)}`
           
           await supabase.from('profiles').upsert({
-            id: [不審なリンクを削除しました],
+            id: user.id,
             display_name: metaDisplayName,
             username: metaUsername,
             role: 'user'
@@ -76,7 +76,7 @@ export default function Header() {
           ) : user ? (
             <>
               <span className="text-stone-700 font-serif font-medium hidden sm:inline">
-                {profile?.display_name || [不審なリンクを削除しました]}
+                {profile?.display_name || user.email}
               </span>
               <Link
                 href="/poems/new"
