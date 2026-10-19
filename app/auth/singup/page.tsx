@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function SignUpPage() {
-  const router = router = useRouter()
+  const router = useRouter()
   const supabase = createClient()
 
   // フォーム状態
