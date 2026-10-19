@@ -70,7 +70,7 @@ export default function SignUpPage() {
         return
       }
 
-      // メール確認が不要（即時ログイン可能）な設定の場合、直接プロファイルを作成/補完
+      // プロファイル情報を作成/補完（Supabase側トリガーと連携）
       if (data.user) {
         const { error: profileError } = await supabase.from('profiles').upsert({
           id: data.user.id,
@@ -80,19 +80,18 @@ export default function SignUpPage() {
         })
 
         if (profileError) {
-          console.error('プロファイル作成補完エラー:', profileError)
+          console.error('プロファイル作成補完:', profileError)
         }
       }
 
       setSuccessMsg(
-        'アカウント登録を受け付けました。確認メールが送信された場合はメール内のリンクをクリックしてください。登録完了後、ログインいただけます。'
+        'アカウント登録を受け付けました。登録完了後、ログイン画面へ遷移します。'
       )
       
-      // 数秒後にログイン画面またはトップページへ遷移
       setTimeout(() => {
         router.push('/auth/login')
         router.refresh()
-      }, 3000)
+      }, 2000)
 
     } catch (err: any) {
       setErrorMsg(`予期せぬエラーが発生しました: ${err?.message || ''}`)
@@ -107,11 +106,11 @@ export default function SignUpPage() {
         
         {/* ヘッダー */}
         <div className="text-center space-y-2">
-          <Link href="/" className="inline-block text-xs tracking-widest text-[#D4A359] uppercase font-sans">
+          <Link href="/" className="inline-block text-xs tracking-widest text-[#D4A359] uppercase font-sans font-medium">
             Poem Pratyaya
           </Link>
           <h1 className="text-2xl font-normal tracking-wide text-[#1A1F2C]">
-            静かなる場へつなる
+            静かなる場へつながる
           </h1>
           <p className="text-xs text-stone-500 font-sans leading-relaxed">
             言葉を紡ぎ、他者の尊厳を深めるためのアカウントを作成します。
@@ -148,7 +147,7 @@ export default function SignUpPage() {
               placeholder="例：黒髪 / 静かな読者"
               className="w-full p-2.5 border border-stone-300 rounded text-sm bg-[#FBF9F5]/40 font-serif focus:outline-none focus:border-[#1A1F2C]"
             />
-            <p className="text-[11px] text-stone-400 mt-1">作品や鑑賞文に表示されるお名前です。後から変更可能です。</p>
+            <p className="text-[11px] text-stone-400 mt-1">作品や鑑賞文に表示されるお名前です。</p>
           </div>
 
           {/* ユーザーネーム（ID） */}
@@ -239,7 +238,7 @@ export default function SignUpPage() {
           <button
             type="submit"
             disabled={isSubmitting || !agreedToTerms}
-            className="w-full py-3 bg-[#1A1F2C] text-[#FBF9F5] text-xs tracking-wider rounded font-serif hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm"
+            className="w-full py-3 bg-[#1A1F2C] text-[#FBF9F5] text-xs tracking-wider rounded font-serif hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-sans"
           >
             {isSubmitting ? 'アカウント作成中...' : 'アカウントを作成して参加する'}
           </button>
