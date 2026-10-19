@@ -1,5 +1,3 @@
-export const dynamic = 'force-dynamic'
-
 import PoemDetailClient from './PoemDetailClient'
 
 export default async function PoemDetailPage({
