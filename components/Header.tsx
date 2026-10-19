@@ -12,43 +12,61 @@ export default function Header() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
+  // プロファイル（筆名）を取得・補完する関数
+  const fetchProfile = async (userId: string, userEmail?: string, metadata?: any) => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('display_name, username')
+        .eq('id', userId)
+        .single()
+
+      if (data) {
+        setProfile(data)
+      } else {
+        // プロファイル未作成時の補完
+        const metaDisplayName = metadata?.display_name || userEmail || '無名の表現者'
+        const metaUsername = metadata?.username || `user_${userId.slice(0, 8)}`
+        
+        await supabase.from('profiles').upsert({
+          id: userId,
+          display_name: metaDisplayName,
+          username: metaUsername,
+          role: 'user'
+        })
+
+        setProfile({ display_name: metaDisplayName, username: metaUsername })
+      }
+    } catch (err) {
+      console.error('プロファイル取得エラー:', err)
+    }
+  }
+
   useEffect(() => {
-    async function getUser() {
+    // 初回ユーザー確認
+    async function loadInitialUser() {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
 
       if (user) {
-        // プロファイル情報の取得
-        const { data } = await supabase
-          .from('profiles')
-          .select('display_name, username')
-          .eq('id', user.id)
-          .single()
-
-        if (data) {
-          setProfile(data)
-        } else {
-          // プロファイルが存在しない場合の自動補完
-          const metaDisplayName = user.user_metadata?.display_name || user.email
-          const metaUsername = user.user_metadata?.username || `user_${user.id.slice(0, 8)}`
-          
-          await supabase.from('profiles').upsert({
-            id: user.id,
-            display_name: metaDisplayName,
-            username: metaUsername,
-            role: 'user'
-          })
-
-          setProfile({ display_name: metaDisplayName, username: metaUsername })
-        }
+        await fetchProfile(user.id, user.email, user.user_metadata)
       }
       setLoading(false)
     }
 
-    getUser()
+    loadInitialUser()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+    // ログイン・ログアウト等の状態変化を監視
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+
+      if (currentUser) {
+        // ログイン状態になったら即座にプロファイルを取得
+        await fetchProfile(currentUser.id, currentUser.email, currentUser.user_metadata)
+      } else {
+        setProfile(null)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -75,8 +93,9 @@ export default function Header() {
             <span className="text-stone-400">...</span>
           ) : user ? (
             <>
+              {/* 筆名を表示（万が一取得できない場合もメールアドレスではなく「無名の表現者」と表示） */}
               <span className="text-stone-700 font-serif font-medium hidden sm:inline">
-                {profile?.display_name || user.email}
+                {profile?.display_name || '無名の表現者'}
               </span>
               <Link
                 href="/poems/new"
