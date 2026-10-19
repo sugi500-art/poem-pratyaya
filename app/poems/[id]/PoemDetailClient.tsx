@@ -107,7 +107,7 @@ export default function PoemDetailClient({ id }: { id: string }) {
       }
     } catch (err: any) {
       setError(err.message || '読み込み中にエラーが発生しました。');
-    } fontally {
+    } finally {
       setLoading(false);
     }
   }
