@@ -239,17 +239,17 @@ export default function ForumLabView() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FBF9F5] text-[#1A1F2C] font-serif antialiased pb-20">
+    <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif antialiased pb-20">
       {/* ページヘッダー */}
-      <header className="border-b border-[#E2DDD5] bg-[#F4F0E8] py-10 px-6">
+      <header className="border-b border-[#E2DDD5] dark:border-stone-800 bg-[#F4F0E8] dark:bg-[#121621] py-10 px-6">
         <div className="max-w-6xl mx-auto text-center space-y-4">
           <p className="text-xs tracking-[0.2em] text-[#D4A359] uppercase font-sans">
             Pratyaya Lab / 言語・思想対話空間
           </p>
-          <h1 className="text-3xl md:text-4xl font-normal tracking-wide text-[#1A1F2C]">
+          <h1 className="text-3xl md:text-4xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
             Pratyaya Lab（対話の空地）
           </h1>
-          <p className="max-w-2xl mx-auto text-sm leading-relaxed text-gray-600 font-sans">
+          <p className="max-w-2xl mx-auto text-sm leading-relaxed text-gray-600 dark:text-stone-400 font-sans">
             詩を縁（pratyaya）として持ちより、言葉の解釈と知の構造化を深める静寂な対話空間です。
             勝敗や優劣を競う二元論を離れ、他者の尊厳と良心を照らす対話を重ねます。
           </p>
@@ -259,15 +259,15 @@ export default function ForumLabView() {
       {/* メインエリア */}
       <main className="max-w-6xl mx-auto px-4 md:px-6 py-8">
         {/* カテゴリタブ & スレッド作成ボタン */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-[#E2DDD5] pb-6 mb-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-[#E2DDD5] dark:border-stone-800 pb-6 mb-8">
           {/* カテゴリフィルター */}
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedCategoryId('all')}
               className={`px-4 py-2 text-xs font-sans rounded transition-colors ${
                 selectedCategoryId === 'all'
-                  ? 'bg-[#1A1F2C] text-[#FBF9F5]'
-                  : 'bg-[#F4F0E8] text-gray-700 hover:bg-[#EAE4D8]'
+                  ? 'bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] font-medium'
+                  : 'bg-[#F4F0E8] dark:bg-stone-800 text-gray-700 dark:text-stone-300 hover:bg-[#EAE4D8] dark:hover:bg-stone-700'
               }`}
             >
               すべて
@@ -278,8 +278,8 @@ export default function ForumLabView() {
                 onClick={() => setSelectedCategoryId(cat.id)}
                 className={`px-4 py-2 text-xs font-sans rounded transition-colors ${
                   selectedCategoryId === cat.id
-                    ? 'bg-[#1A1F2C] text-[#FBF9F5]'
-                    : 'bg-[#F4F0E8] text-gray-700 hover:bg-[#EAE4D8]'
+                    ? 'bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] font-medium'
+                    : 'bg-[#F4F0E8] dark:bg-stone-800 text-gray-700 dark:text-stone-300 hover:bg-[#EAE4D8] dark:hover:bg-stone-700'
                 }`}
               >
                 {cat.name}
@@ -290,7 +290,7 @@ export default function ForumLabView() {
           {/* 新規スレッド立てボタン */}
           <button
             onClick={() => setIsNewThreadOpen(true)}
-            className="inline-flex items-center justify-center px-5 py-2.5 bg-[#D4A359] hover:bg-[#C29248] text-white text-xs tracking-wider font-sans rounded shadow-sm transition-colors"
+            className="inline-flex items-center justify-center px-5 py-2.5 bg-[#D4A359] hover:bg-[#C29248] text-white dark:text-[#1A1F2C] text-xs tracking-wider font-sans rounded shadow-sm transition-colors font-medium"
           >
             ＋ 新しい問いを投稿する（スレッド作成）
           </button>
@@ -300,12 +300,12 @@ export default function ForumLabView() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* 左側：スレッド一覧 (5/12) */}
           <div className="lg:col-span-5 space-y-4">
-            <h2 className="text-xs tracking-widest text-gray-500 font-sans uppercase mb-2">
+            <h2 className="text-xs tracking-widest text-gray-500 dark:text-stone-400 font-sans uppercase mb-2">
               スレッド一覧 ({filteredThreads.length}件)
             </h2>
 
             {filteredThreads.length === 0 ? (
-              <div className="p-8 text-center bg-[#F4F0E8] rounded text-sm text-gray-500 font-sans">
+              <div className="p-8 text-center bg-[#F4F0E8] dark:bg-[#242B3B] rounded border border-[#E2DDD5] dark:border-stone-800 text-sm text-gray-500 dark:text-stone-400 font-sans">
                 該当するスレッドはまだありません。新しい問いを立ててみましょう。
               </div>
             ) : (
@@ -319,29 +319,29 @@ export default function ForumLabView() {
                     onClick={() => setActiveThreadId(thread.id)}
                     className={`p-5 rounded-lg border cursor-pointer transition-all ${
                       isActive
-                        ? 'border-[#D4A359] bg-white shadow-md'
-                        : 'border-[#E2DDD5] bg-[#F4F0E8]/60 hover:bg-white hover:border-gray-300'
+                        ? 'border-[#D4A359] bg-white dark:bg-[#242B3B] shadow-md'
+                        : 'border-[#E2DDD5] dark:border-stone-800 bg-[#F4F0E8]/60 dark:bg-[#1E2533]/60 hover:bg-white dark:hover:bg-[#242B3B]'
                     }`}
                   >
-                    <div className="flex items-center justify-between text-xs text-gray-500 font-sans mb-2">
-                      <span className="px-2 py-0.5 bg-[#EAE4D8] text-gray-800 rounded text-[10px]">
+                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-stone-400 font-sans mb-2">
+                      <span className="px-2 py-0.5 bg-[#EAE4D8] dark:bg-stone-800 text-gray-800 dark:text-stone-200 rounded text-[10px]">
                         {category?.name || 'カテゴリ'}
                       </span>
                       <span>返信 {thread.posts_count}件</span>
                     </div>
 
-                    <h3 className="text-base font-medium leading-snug text-[#1A1F2C] mb-2 line-clamp-2">
+                    <h3 className="text-base font-medium leading-snug text-[#1A1F2C] dark:text-stone-100 mb-2 line-clamp-2">
                       {thread.title}
                     </h3>
 
-                    <div className="flex items-center justify-between text-xs text-gray-500 font-sans pt-2 border-t border-gray-100">
+                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-stone-400 font-sans pt-2 border-t border-gray-100 dark:border-stone-800">
                       <span className="flex items-center gap-1">
                         <span>{thread.author_name}</span>
                         {thread.author_role === 'admin' && (
                           <span className="text-[10px] text-[#D4A359] border border-[#D4A359] px-1 rounded">主宰</span>
                         )}
                         {thread.author_role === 'advisor' && (
-                          <span className="text-[10px] text-emerald-700 border border-emerald-600 px-1 rounded">アドバイザー</span>
+                          <span className="text-[10px] text-emerald-700 dark:text-emerald-400 border border-emerald-600 px-1 rounded">アドバイザー</span>
                         )}
                       </span>
                       <span>{new Date(thread.last_activity_at).toLocaleDateString('ja-JP')}</span>
@@ -355,15 +355,15 @@ export default function ForumLabView() {
           {/* 右側：スレッド詳細・対話（7/12） */}
           <div className="lg:col-span-7">
             {activeThread ? (
-              <div className="bg-white border border-[#E2DDD5] rounded-xl p-6 md:p-8 space-y-8 shadow-sm">
+              <div className="bg-white dark:bg-[#242B3B] border border-[#E2DDD5] dark:border-stone-800 rounded-xl p-6 md:p-8 space-y-8 shadow-sm">
                 {/* スレッドヘッダー */}
-                <div className="border-b border-[#E2DDD5] pb-6 space-y-3">
+                <div className="border-b border-[#E2DDD5] dark:border-stone-800 pb-6 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 bg-[#F4F0E8] text-[#1A1F2C] text-xs font-sans rounded">
+                      <span className="px-2.5 py-1 bg-[#F4F0E8] dark:bg-stone-800 text-[#1A1F2C] dark:text-stone-200 text-xs font-sans rounded">
                         {categories.find((c) => c.id === activeThread.category_id)?.name}
                       </span>
-                      <span className="text-xs text-gray-400 font-sans">
+                      <span className="text-xs text-gray-400 dark:text-stone-400 font-sans">
                         {new Date(activeThread.created_at).toLocaleString('ja-JP')}
                       </span>
                     </div>
@@ -372,7 +372,7 @@ export default function ForumLabView() {
                     {activeThread.author_id === currentUserId && (
                       <button
                         onClick={() => handleDeleteThread(activeThread.id)}
-                        className="text-xs text-rose-600 hover:text-rose-800 font-sans px-2 py-1 rounded hover:bg-rose-50 transition"
+                        className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 font-sans px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/50 transition"
                         title="このスレッドを削除"
                       >
                         🗑️ スレッドを削除
@@ -380,14 +380,14 @@ export default function ForumLabView() {
                     )}
                   </div>
 
-                  <h2 className="text-xl md:text-2xl font-normal text-[#1A1F2C] leading-snug">
+                  <h2 className="text-xl md:text-2xl font-normal text-[#1A1F2C] dark:text-stone-100 leading-snug">
                     {activeThread.title}
                   </h2>
 
-                  <div className="flex items-center gap-2 pt-2 text-xs font-sans text-gray-600">
-                    <span className="font-medium text-[#1A1F2C]">{activeThread.author_name}</span>
+                  <div className="flex items-center gap-2 pt-2 text-xs font-sans text-gray-600 dark:text-stone-300">
+                    <span className="font-medium text-[#1A1F2C] dark:text-stone-100">{activeThread.author_name}</span>
                     {activeThread.author_role === 'admin' && (
-                      <span className="text-[10px] bg-[#1A1F2C] text-[#FBF9F5] px-1.5 py-0.5 rounded">主宰</span>
+                      <span className="text-[10px] bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] px-1.5 py-0.5 rounded font-medium">主宰</span>
                     )}
                     {activeThread.author_role === 'advisor' && (
                       <span className="text-[10px] bg-emerald-700 text-white px-1.5 py-0.5 rounded">特別選者</span>
@@ -396,13 +396,13 @@ export default function ForumLabView() {
                 </div>
 
                 {/* スレッド本文 */}
-                <div className="text-base text-gray-800 leading-relaxed whitespace-pre-wrap font-serif bg-[#FBF9F5] p-5 rounded-lg border border-[#E2DDD5]">
+                <div className="text-base text-gray-800 dark:text-stone-200 leading-relaxed whitespace-pre-wrap font-serif bg-[#FBF9F5] dark:bg-[#1A1F2C] p-5 rounded-lg border border-[#E2DDD5] dark:border-stone-800">
                   {activeThread.content}
                 </div>
 
                 {/* 返信ポスト一覧 */}
                 <div className="space-y-6 pt-4">
-                  <h3 className="text-xs tracking-widest text-gray-500 font-sans uppercase border-b border-[#E2DDD5] pb-2">
+                  <h3 className="text-xs tracking-widest text-gray-500 dark:text-stone-400 font-sans uppercase border-b border-[#E2DDD5] dark:border-stone-800 pb-2">
                     対話・応答 ({activeThread.posts?.length || 0}件)
                   </h3>
 
@@ -410,28 +410,28 @@ export default function ForumLabView() {
                     activeThread.posts.map((post, idx) => (
                       <div
                         key={post.id}
-                        className="p-5 rounded-lg bg-[#F4F0E8]/40 border border-[#E2DDD5] space-y-3"
+                        className="p-5 rounded-lg bg-[#F4F0E8]/40 dark:bg-[#1E2533]/80 border border-[#E2DDD5] dark:border-stone-800 space-y-3"
                       >
-                        <div className="flex items-center justify-between text-xs font-sans text-gray-600">
+                        <div className="flex items-center justify-between text-xs font-sans text-gray-600 dark:text-stone-300">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-[#1A1F2C]">{post.author_name}</span>
+                            <span className="font-medium text-[#1A1F2C] dark:text-stone-100">{post.author_name}</span>
                             {post.author_role === 'admin' && (
                               <span className="text-[10px] text-[#D4A359] border border-[#D4A359] px-1 rounded">主宰</span>
                             )}
                             {post.author_role === 'advisor' && (
-                              <span className="text-[10px] text-emerald-700 border border-emerald-600 px-1 rounded">アドバイザー</span>
+                              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 border border-emerald-600 px-1 rounded">アドバイザー</span>
                             )}
                           </div>
 
                           <div className="flex items-center gap-3">
-                            <span className="text-gray-400">
+                            <span className="text-gray-400 dark:text-stone-400">
                               #{idx + 1} ・ {new Date(post.created_at).toLocaleString('ja-JP')}
                             </span>
                             {/* 投稿者本人の場合のみ削除ボタンを表示 */}
                             {post.author_id === currentUserId && (
                               <button
                                 onClick={() => handleDeletePost(post.id)}
-                                className="text-stone-400 hover:text-rose-600 text-xs font-sans transition"
+                                className="text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-sans transition"
                                 title="この応答を削除"
                               >
                                 削除
@@ -439,42 +439,42 @@ export default function ForumLabView() {
                             )}
                           </div>
                         </div>
-                        <p className="text-sm leading-relaxed text-gray-800 font-serif whitespace-pre-wrap">
+                        <p className="text-sm leading-relaxed text-gray-800 dark:text-stone-200 font-serif whitespace-pre-wrap">
                           {post.content}
                         </p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-gray-500 font-sans italic">
+                    <p className="text-xs text-gray-500 dark:text-stone-400 font-sans italic">
                       まだ応答はありません。静かな対話の最初の一言を添えてみましょう。
                     </p>
                   )}
                 </div>
 
                 {/* 返信フォーム */}
-                <form onSubmit={handleSendReply} className="pt-6 border-t border-[#E2DDD5] space-y-4">
-                  <h4 className="text-sm font-medium text-[#1A1F2C] font-sans">対話に応答する</h4>
+                <form onSubmit={handleSendReply} className="pt-6 border-t border-[#E2DDD5] dark:border-stone-800 space-y-4">
+                  <h4 className="text-sm font-medium text-[#1A1F2C] dark:text-stone-100 font-sans">対話に応答する</h4>
 
                   <textarea
                     rows={4}
                     value={replyContent}
                     onChange={(e) => setReplyContent(e.target.value)}
                     placeholder="言葉の意味、構造、音響への想いを誠実にお書きください..."
-                    className="w-full p-4 border border-[#E2DDD5] rounded-lg bg-[#FBF9F5] focus:bg-white text-sm font-serif text-[#1A1F2C] focus:outline-none focus:ring-1 focus:ring-[#D4A359]"
+                    className="w-full p-4 border border-[#E2DDD5] dark:border-stone-700 rounded-lg bg-[#FBF9F5] dark:bg-[#1A1F2C] focus:bg-white dark:focus:bg-[#1E2533] text-sm font-serif text-[#1A1F2C] dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#D4A359]"
                     required
                   />
 
                   {/* 倫理確認チェックボックス */}
-                  <div className="p-3 bg-[#F4F0E8] rounded border border-[#E2DDD5] flex items-start gap-3">
+                  <div className="p-3 bg-[#F4F0E8] dark:bg-[#1A1F2C] rounded border border-[#E2DDD5] dark:border-stone-800 flex items-start gap-3">
                     <input
                       type="checkbox"
                       id="reply-ethics"
                       checked={replyEthicsAgreed}
                       onChange={(e) => setReplyEthicsAgreed(e.target.checked)}
-                      className="mt-0.5 accent-[#1A1F2C] h-4 w-4"
+                      className="mt-0.5 accent-[#1A1F2C] dark:accent-[#D4A359] h-4 w-4"
                       required
                     />
-                    <label htmlFor="reply-ethics" className="text-xs text-gray-700 font-sans leading-snug cursor-pointer">
+                    <label htmlFor="reply-ethics" className="text-xs text-gray-700 dark:text-stone-300 font-sans leading-snug cursor-pointer select-none">
                       <span className="font-semibold text-[#D4A359]">【倫理確認】</span>
                       この言葉は、作品の解釈を深め、他者の尊厳と良心を照らすものですか？（人格攻撃や無遠慮な否定を含まないことを確認します）
                     </label>
@@ -484,7 +484,7 @@ export default function ForumLabView() {
                     <button
                       type="submit"
                       disabled={!replyContent.trim() || !replyEthicsAgreed}
-                      className="px-6 py-2.5 bg-[#1A1F2C] hover:bg-[#2C3242] disabled:bg-gray-300 text-[#FBF9F5] text-xs font-sans tracking-wider rounded transition-colors"
+                      className="px-6 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] hover:bg-[#2C3242] dark:hover:opacity-90 disabled:bg-gray-300 dark:disabled:bg-stone-800 text-[#FBF9F5] dark:text-[#1A1F2C] text-xs font-sans tracking-wider rounded transition-colors font-medium"
                     >
                       対話文を送信する
                     </button>
@@ -492,7 +492,7 @@ export default function ForumLabView() {
                 </form>
               </div>
             ) : (
-              <div className="bg-white border border-[#E2DDD5] rounded-xl p-12 text-center text-gray-500 font-sans text-sm">
+              <div className="bg-white dark:bg-[#242B3B] border border-[#E2DDD5] dark:border-stone-800 rounded-xl p-12 text-center text-gray-500 dark:text-stone-400 font-sans text-sm">
                 左側のスレッド一覧から対話を選択してください。
               </div>
             )}
@@ -502,13 +502,13 @@ export default function ForumLabView() {
 
       {/* 新規スレッド作成モーダル */}
       {isNewThreadOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#FBF9F5] border border-[#E2DDD5] rounded-xl max-w-2xl w-full p-6 md:p-8 space-y-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#E2DDD5] pb-4">
-              <h3 className="text-lg font-normal text-[#1A1F2C]">新しい問いを立てる（スレッド作成）</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#FBF9F5] dark:bg-[#242B3B] border border-[#E2DDD5] dark:border-stone-800 rounded-xl max-w-2xl w-full p-6 md:p-8 space-y-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#E2DDD5] dark:border-stone-800 pb-4">
+              <h3 className="text-lg font-normal text-[#1A1F2C] dark:text-stone-100">新しい問いを立てる（スレッド作成）</h3>
               <button
                 onClick={() => setIsNewThreadOpen(false)}
-                className="text-gray-400 hover:text-gray-600 font-sans text-sm"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-stone-200 font-sans text-sm"
               >
                 ✕ 閉じる
               </button>
@@ -516,11 +516,11 @@ export default function ForumLabView() {
 
             <form onSubmit={handleCreateThread} className="space-y-4">
               <div>
-                <label className="block text-xs font-sans text-gray-700 mb-1">対話カテゴリ</label>
+                <label className="block text-xs font-sans text-gray-700 dark:text-stone-300 mb-1">対話カテゴリ</label>
                 <select
                   value={newThreadCategory}
                   onChange={(e) => setNewThreadCategory(e.target.value)}
-                  className="w-full p-3 border border-[#E2DDD5] rounded bg-white text-sm font-sans text-[#1A1F2C]"
+                  className="w-full p-3 border border-[#E2DDD5] dark:border-stone-700 rounded bg-white dark:bg-[#1A1F2C] text-sm font-sans text-[#1A1F2C] dark:text-stone-100"
                 >
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
@@ -531,40 +531,40 @@ export default function ForumLabView() {
               </div>
 
               <div>
-                <label className="block text-xs font-sans text-gray-700 mb-1">スレッドタイトル（問い）</label>
+                <label className="block text-xs font-sans text-gray-700 dark:text-stone-300 mb-1">スレッドタイトル（問い）</label>
                 <input
                   type="text"
                   value={newThreadTitle}
                   onChange={(e) => setNewThreadTitle(e.target.value)}
                   placeholder="例：言葉の音響（Vāc）と論理（Logos）の調和について"
-                  className="w-full p-3 border border-[#E2DDD5] rounded bg-white text-sm font-serif text-[#1A1F2C]"
+                  className="w-full p-3 border border-[#E2DDD5] dark:border-stone-700 rounded bg-white dark:bg-[#1A1F2C] text-sm font-serif text-[#1A1F2C] dark:text-stone-100 placeholder-stone-400"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-sans text-gray-700 mb-1">問いの背景・思考（本文）</label>
+                <label className="block text-xs font-sans text-gray-700 dark:text-stone-300 mb-1">問いの背景・思考（本文）</label>
                 <textarea
                   rows={6}
                   value={newThreadContent}
                   onChange={(e) => setNewThreadContent(e.target.value)}
                   placeholder="問いを投げかける背景や、ご自身の言葉に対する考えを丁寧にお書きください..."
-                  className="w-full p-3 border border-[#E2DDD5] rounded bg-white text-sm font-serif text-[#1A1F2C]"
+                  className="w-full p-3 border border-[#E2DDD5] dark:border-stone-700 rounded bg-white dark:bg-[#1A1F2C] text-sm font-serif text-[#1A1F2C] dark:text-stone-100 placeholder-stone-400"
                   required
                 />
               </div>
 
               {/* 倫理同意 */}
-              <div className="p-3 bg-[#F4F0E8] rounded border border-[#E2DDD5] flex items-start gap-3">
+              <div className="p-3 bg-[#F4F0E8] dark:bg-[#1A1F2C] rounded border border-[#E2DDD5] dark:border-stone-800 flex items-start gap-3">
                 <input
                   type="checkbox"
                   id="new-thread-ethics"
                   checked={newThreadEthicsAgreed}
                   onChange={(e) => setNewThreadEthicsAgreed(e.target.checked)}
-                  className="mt-0.5 accent-[#1A1F2C] h-4 w-4"
+                  className="mt-0.5 accent-[#1A1F2C] dark:accent-[#D4A359] h-4 w-4"
                   required
                 />
-                <label htmlFor="new-thread-ethics" className="text-xs text-gray-700 font-sans leading-snug cursor-pointer">
+                <label htmlFor="new-thread-ethics" className="text-xs text-gray-700 dark:text-stone-300 font-sans leading-snug cursor-pointer select-none">
                   <span className="font-semibold text-[#D4A359]">【倫理確認】</span>
                   この問いは、詩と思索を深め、他者の尊厳と良心を尊重する言葉で記述されていますか？
                 </label>
@@ -574,14 +574,14 @@ export default function ForumLabView() {
                 <button
                   type="button"
                   onClick={() => setIsNewThreadOpen(false)}
-                  className="px-4 py-2 border border-[#E2DDD5] text-xs font-sans text-gray-600 rounded"
+                  className="px-4 py-2 border border-[#E2DDD5] dark:border-stone-700 text-xs font-sans text-gray-600 dark:text-stone-300 rounded"
                 >
                   キャンセル
                 </button>
                 <button
                   type="submit"
                   disabled={!newThreadTitle.trim() || !newThreadContent.trim() || !newThreadEthicsAgreed}
-                  className="px-6 py-2 bg-[#1A1F2C] hover:bg-[#2C3242] disabled:bg-gray-300 text-[#FBF9F5] text-xs font-sans tracking-wider rounded transition-colors"
+                  className="px-6 py-2 bg-[#1A1F2C] dark:bg-[#D4A359] hover:bg-[#2C3242] dark:hover:opacity-90 disabled:bg-gray-300 dark:disabled:bg-stone-800 text-[#FBF9F5] dark:text-[#1A1F2C] text-xs font-sans tracking-wider rounded transition-colors font-medium"
                 >
                   スレッドを開設する
                 </button>
