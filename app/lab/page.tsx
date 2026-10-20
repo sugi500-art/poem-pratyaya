@@ -16,8 +16,10 @@ interface Category {
   id: string
   slug: string
   name: string
-  description?: string
-  display_order?: number
+  subtitle: string
+  description: string
+  guide_prompt: string
+  display_order: number
 }
 
 interface ForumThread {
@@ -42,33 +44,42 @@ interface ForumPost {
   profiles?: Profile
 }
 
-const DEFAULT_CATEGORIES: Category[] = [
+// 4つの部屋の深い定義と案内文
+const ROOM_DEFINITIONS: Category[] = [
   {
     id: 'peer-review',
     slug: 'peer-review',
-    name: '相互鑑賞・合評',
-    description: '投稿作への深い解読、推敲のアドバイス、表現の技術論',
+    name: '相互鑑賞・合評の部屋',
+    subtitle: 'Pratyaya Lab',
+    description: '作品の一音・一節の響き、技術論、推敲のための静かな合評空間です。言葉の表面的な批判ではなく「別の角度から光を当てる灯火」として他者の作品と向き合います。',
+    guide_prompt: '推敲で行き詰まっている一節や、音響の響きについて問いを投げかけてみましょう。',
     display_order: 1,
   },
   {
     id: 'linguistics',
     slug: 'linguistics',
-    name: '言語・思想研究',
-    description: 'サンスクリット語・古典詩論・法哲学的問い・詩とは何か',
+    name: '言語・思想研究の部屋',
+    subtitle: 'Vāc & Logos',
+    description: '言葉と意識の構造、サンスクリット古典詩論、空（śūnyatā）と動的縁起、法哲学など、詩と人間存在をめぐる知の探求を行う部屋です。',
+    guide_prompt: '読書や思索の中で出会った「言葉と存在」をめぐる概念や論点について記してみましょう。',
     display_order: 2,
   },
   {
     id: 'experimental',
     slug: 'experimental',
-    name: '雑作・実験室',
-    description: '詩作の試み、一節の試作、言葉の響き（音響）の実験',
+    name: '雑作・実験室の部屋',
+    subtitle: 'Experimental Lab',
+    description: '断片的なフレーズ、音響実験、試作段階の言葉の書き付けを置く実験場です。未完成の詩篇が持つ可能性を静かに観察します。',
+    guide_prompt: 'ふと浮かんだ一文や、試作中のフレーズの断片を自由に置いてみましょう。',
     display_order: 3,
   },
   {
     id: 'tea-room',
     slug: 'tea-room',
     name: '雑談・静かな茶室',
-    description: '日常の観察、読んだ詩集の感想、創作の悩み相談',
+    subtitle: 'Tea Room',
+    description: '日常の些細な観察、印象に残った詩集の感想、創作に伴う静かな悩みや季節の移ろいを共有する、茶室のような和やかな空間です。',
+    guide_prompt: '最近心に残った言葉や、日々の静かな観察について気負わずに語りかけてみましょう。',
     display_order: 4,
   },
 ]
@@ -76,25 +87,26 @@ const DEFAULT_CATEGORIES: Category[] = [
 export default function LabPage() {
   const supabase = createClient()
 
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES)
+  const [categories, setCategories] = useState<Category[]>(ROOM_DEFINITIONS)
   const [threads, setThreads] = useState<ForumThread[]>([])
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
   const [activeThread, setActiveThread] = useState<ForumThread | null>(null)
   const [activePosts, setActivePosts] = useState<ForumPost[]>([])
+  
   const [loading, setLoading] = useState(true)
   const [loadingPosts, setLoadingPosts] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
 
-  // 新規スレッド（問い）用フォーム
+  // 新規問い投稿フォーム状態
   const [isNewThreadOpen, setIsNewThreadOpen] = useState(false)
-  const [newThreadCategory, setNewThreadCategory] = useState<string>('')
+  const [newThreadCategory, setNewThreadCategory] = useState<string>('peer-review')
   const [newThreadTitle, setNewThreadTitle] = useState('')
   const [newThreadContent, setNewThreadContent] = useState('')
   const [newThreadEthicsAgreed, setNewThreadEthicsAgreed] = useState(false)
   const [newThreadStatus, setNewThreadStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [isSubmittingThread, setIsSubmittingThread] = useState(false)
 
-  // 新規返信（レス）用フォーム
+  // 返信フォーム状態
   const [replyContent, setReplyContent] = useState('')
   const [replyEthicsAgreed, setReplyEthicsAgreed] = useState(false)
   const [replyStatus, setReplyStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -102,7 +114,7 @@ export default function LabPage() {
 
   useEffect(() => {
     checkCurrentUser()
-    fetchCategoriesAndThreads()
+    fetchData()
   }, [])
 
   async function checkCurrentUser() {
@@ -110,24 +122,26 @@ export default function LabPage() {
     setCurrentUser(user)
   }
 
-  async function fetchCategoriesAndThreads() {
+  async function fetchData() {
     try {
       setLoading(true)
 
-      // カテゴリの取得
+      // カテゴリデータ取得
       const { data: catData } = await supabase
         .from('forum_categories')
         .select('*')
         .order('display_order', { ascending: true })
 
       if (catData && catData.length > 0) {
-        setCategories(catData)
-        setNewThreadCategory(catData[0].id)
-      } else {
-        setNewThreadCategory(DEFAULT_CATEGORIES[0].id)
+        // DB定義があれば統合
+        const merged = ROOM_DEFINITIONS.map((def) => {
+          const dbCat = catData.find((c) => c.slug === def.slug || c.id === def.id)
+          return dbCat ? { ...def, id: dbCat.id } : def
+        })
+        setCategories(merged)
       }
 
-      // スレッドの取得（profiles, forum_categories との結合）
+      // スレッド取得
       const { data: threadData, error: threadError } = await supabase
         .from('forum_threads')
         .select(`
@@ -148,7 +162,7 @@ export default function LabPage() {
         }
       }
     } catch (err) {
-      console.error('フォーラムデータ取得エラー:', err)
+      console.error('データ取得中のエラー:', err)
     } finally {
       setLoading(false)
     }
@@ -179,7 +193,6 @@ export default function LabPage() {
     }
   }
 
-  // スレッド選択時の切り替え
   function handleSelectThread(thread: ForumThread) {
     setActiveThread(thread)
     setReplyStatus(null)
@@ -188,7 +201,7 @@ export default function LabPage() {
     fetchPostsForThread(thread.id)
   }
 
-  // 新規スレッド作成ハンドラ
+  // 新規スレッド作成
   async function handleCreateThread(e: React.FormEvent) {
     e.preventDefault()
     setNewThreadStatus(null)
@@ -251,7 +264,7 @@ export default function LabPage() {
     }
   }
 
-  // スレッドへの返信作成ハンドラ
+  // 返信投稿
   async function handleCreateReply(e: React.FormEvent) {
     e.preventDefault()
     setReplyStatus(null)
@@ -304,7 +317,7 @@ export default function LabPage() {
 
       setReplyContent('')
       setReplyEthicsAgreed(false)
-      setReplyStatus({ type: 'success', text: '返信を投稿しました。' })
+      setReplyStatus({ type: 'success', text: '深層の応答を投稿しました。' })
     } catch (err: any) {
       console.error('返信作成エラー:', err)
       setReplyStatus({ type: 'error', text: err.message || '返信の送信に失敗しました。' })
@@ -313,81 +326,101 @@ export default function LabPage() {
     }
   }
 
+  // 選択中のカテゴリ情報
+  const currentCategoryInfo = categories.find((c) => c.id === selectedCategoryId || c.slug === selectedCategoryId)
+
+  // フィルタリングされたスレッド一覧
   const filteredThreads =
-    selectedCategory === 'all'
+    selectedCategoryId === 'all'
       ? threads
       : threads.filter(
           (t) =>
-            t.category_id === selectedCategory ||
-            t.forum_categories?.id === selectedCategory ||
-            t.forum_categories?.slug === selectedCategory
+            t.category_id === selectedCategoryId ||
+            t.forum_categories?.id === selectedCategoryId ||
+            t.forum_categories?.slug === selectedCategoryId
         )
 
   return (
     <div className="min-h-screen bg-[#FBF9F5] text-[#1A1F2C] font-serif antialiased pb-20">
-      {/* ページヘッダー */}
-      <header className="border-b border-[#E2DDD5] bg-[#F4F0E8] py-8 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-xs tracking-[0.2em] text-[#D4A359] uppercase font-sans font-medium">
-              Pratyaya Lab / 言語・思想対話空間
+      
+      {/* ページヘッダー（静寂と深遠さを演出） */}
+      <header className="border-b border-[#E2DDD5] bg-[#F4F0E8] py-10 px-6">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <p className="text-xs tracking-[0.25em] text-[#D4A359] uppercase font-sans font-medium">
+              Pratyaya Lab — Dialogue Sanctuary
             </p>
             <h1 className="text-2xl md:text-3xl font-normal tracking-wide text-[#1A1F2C]">
-              Pratyaya Lab（対話の空地）
+              対話と深層批判の部屋（Pratyaya Lab）
             </h1>
-            <p className="text-xs text-stone-600 font-sans max-w-xl leading-relaxed">
-              言葉を縁（pratyaya）として持ちより、思考と推敲を深める4つの部屋（空間）です。
+            <p className="text-xs text-stone-600 font-sans max-w-2xl leading-relaxed">
+              勝敗や優劣を競う二元論を離れ、言葉を縁（pratyaya）として持ちより、互いの尊厳と良心を照らし合う4つの空間です。
             </p>
           </div>
           <Link href="/" className="text-xs font-sans text-stone-500 hover:text-[#1A1F2C] transition shrink-0">
-            ← トップへ戻る
+            ← トップ目次へ戻る
           </Link>
         </div>
       </header>
 
-      {/* メインエリア */}
       <main className="max-w-6xl mx-auto px-4 md:px-6 py-8 space-y-8">
         
-        {/* 4つの部屋（カテゴリタブ）＆ 新しい問い投稿ボタン */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E2DDD5] pb-6">
-          
-          {/* カテゴリタブ */}
-          <div className="flex flex-wrap gap-2 font-sans text-xs">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`px-4 py-2 rounded transition-colors ${
-                selectedCategory === 'all'
-                  ? 'bg-[#1A1F2C] text-[#FBF9F5] font-medium'
-                  : 'bg-[#F4F0E8] text-stone-700 hover:bg-[#EAE4D8]'
-              }`}
-            >
-              すべての部屋 ({threads.length})
-            </button>
-            {categories.map((cat) => (
+        {/* 4つの部屋（カテゴリ切替ナビゲーション） */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2DDD5] pb-4">
+            <div className="flex flex-wrap gap-2 font-sans text-xs">
               <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2 rounded transition-colors ${
-                  selectedCategory === cat.id
-                    ? 'bg-[#1A1F2C] text-[#FBF9F5] font-medium'
+                onClick={() => setSelectedCategoryId('all')}
+                className={`px-4 py-2 rounded transition-all ${
+                  selectedCategoryId === 'all'
+                    ? 'bg-[#1A1F2C] text-[#FBF9F5] font-medium shadow-sm'
                     : 'bg-[#F4F0E8] text-stone-700 hover:bg-[#EAE4D8]'
                 }`}
               >
-                {cat.name}
+                すべての部屋 ({threads.length})
               </button>
-            ))}
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategoryId(cat.id)}
+                  className={`px-4 py-2 rounded transition-all ${
+                    selectedCategoryId === cat.id
+                      ? 'bg-[#1A1F2C] text-[#FBF9F5] font-medium shadow-sm'
+                      : 'bg-[#F4F0E8] text-stone-700 hover:bg-[#EAE4D8]'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setIsNewThreadOpen(!isNewThreadOpen)}
+              className="inline-flex items-center justify-center px-5 py-2.5 bg-[#D4A359] hover:bg-[#C29248] text-white text-xs tracking-wider font-sans rounded shadow-sm transition-colors shrink-0"
+            >
+              {isNewThreadOpen ? 'フォームを閉じる' : '＋ 新しい問いを投稿する'}
+            </button>
           </div>
 
-          {/* 新規問い投稿ボタン */}
-          <button
-            onClick={() => setIsNewThreadOpen(!isNewThreadOpen)}
-            className="inline-flex items-center justify-center px-5 py-2.5 bg-[#D4A359] hover:bg-[#C29248] text-white text-xs tracking-wider font-sans rounded shadow-sm transition-colors shrink-0"
-          >
-            {isNewThreadOpen ? 'フォームをたたむ' : '＋ 新しい問いを投稿する'}
-          </button>
+          {/* 選択中の部屋の案内メッセージカード */}
+          {currentCategoryInfo && (
+            <div className="p-6 bg-white border-l-4 border-[#D4A359] border-y border-r border-[#E2DDD5] rounded-r-lg space-y-2 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-normal text-[#1A1F2C]">
+                  {currentCategoryInfo.name} <span className="text-xs text-[#D4A359] font-sans font-medium ml-2">[{currentCategoryInfo.subtitle}]</span>
+                </h2>
+              </div>
+              <p className="text-xs text-stone-700 font-serif leading-relaxed">
+                {currentCategoryInfo.description}
+              </p>
+              <p className="text-[11px] text-stone-500 font-sans italic pt-1 border-t border-stone-100">
+                💡 {currentCategoryInfo.guide_prompt}
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* 新規スレッド投稿フォーム（折りたたみ） */}
+        {/* 新規スレッド（問い）作成フォーム */}
         {isNewThreadOpen && (
           <section className="bg-white border border-[#E2DDD5] rounded-lg p-6 md:p-8 space-y-6 shadow-sm">
             <div className="border-b border-stone-200 pb-3">
@@ -395,7 +428,7 @@ export default function LabPage() {
                 新しい問い（スレッド）を立てる
               </h2>
               <p className="text-xs text-stone-500 font-sans mt-1">
-                対話を行う部屋（カテゴリ）を選び、問いかけを記してください。
+                対話を行う部屋を選び、丁寧な言葉で問題提起を行ってください。
               </p>
             </div>
 
@@ -421,7 +454,7 @@ export default function LabPage() {
                 >
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
-                      {cat.name} — {cat.description || ''}
+                      {cat.name} ({cat.subtitle})
                     </option>
                   ))}
                 </select>
@@ -445,7 +478,7 @@ export default function LabPage() {
                   rows={4}
                   value={newThreadContent}
                   onChange={(e) => setNewThreadContent(e.target.value)}
-                  placeholder="対話の背景や具体的な問題提起を記してください..."
+                  placeholder="対話の背景や、具体的に深めたい点について記してください..."
                   className="w-full p-2.5 border border-[#E2DDD5] rounded text-sm bg-[#FBF9F5]/40 font-serif focus:outline-none focus:border-[#1A1F2C] resize-y"
                   disabled={isSubmittingThread}
                 />
@@ -460,7 +493,7 @@ export default function LabPage() {
                     className="mt-0.5 rounded border-stone-300 text-[#1A1F2C] focus:ring-[#D4A359]"
                   />
                   <span className="text-stone-700 leading-relaxed font-serif">
-                    ※ 人格攻撃を排し、言葉そのものや構造に対して誠実に対話します。
+                    ※ 人格攻撃や批判を排し、表現された言葉や構造に対して誠実に対話します。
                   </span>
                 </label>
               </div>
@@ -484,7 +517,7 @@ export default function LabPage() {
           {/* 左カラム：スレッド一覧 */}
           <div className="lg:col-span-5 space-y-4">
             <h2 className="text-xs tracking-widest text-stone-500 font-sans uppercase mb-2">
-              問いの一覧 ({filteredThreads.length}件)
+              投ぜられた問い ({filteredThreads.length}件)
             </h2>
 
             {loading ? (
@@ -492,8 +525,9 @@ export default function LabPage() {
                 対話を読み込んでいます...
               </div>
             ) : filteredThreads.length === 0 ? (
-              <div className="p-8 text-center bg-white border border-[#E2DDD5] rounded text-xs font-sans text-stone-500">
-                この部屋にはまだ問いがありません。「新しい問いを投稿する」から対話を始めてみましょう。
+              <div className="p-8 text-center bg-white border border-[#E2DDD5] rounded text-xs font-sans text-stone-500 space-y-2">
+                <p>この部屋にはまだ問いが投ぜられていません。</p>
+                <p className="text-[11px] text-stone-400">「＋ 新しい問いを投稿する」から最初の対話を始めてみましょう。</p>
               </div>
             ) : (
               filteredThreads.map((thread) => {
@@ -501,13 +535,13 @@ export default function LabPage() {
                 const authorName =
                   thread.profiles?.display_name || thread.profiles?.username || '無名の表現者'
                 const isMyThread = currentUser && thread.author_id === currentUser.id
-                const catName = thread.forum_categories?.name || '部屋'
+                const catName = thread.forum_categories?.name || '対話空間'
 
                 return (
                   <div
                     key={thread.id}
                     onClick={() => handleSelectThread(thread)}
-                    className={`p-5 rounded-lg border cursor-pointer transition-all space-y-2 ${
+                    className={`p-5 rounded-lg border cursor-pointer transition-all space-y-2.5 ${
                       isActive
                         ? 'border-[#D4A359] bg-white shadow-md'
                         : 'border-[#E2DDD5] bg-white/70 hover:bg-white hover:border-stone-300'
@@ -517,7 +551,7 @@ export default function LabPage() {
                       <span className="px-2 py-0.5 bg-[#EAE4D8] text-stone-800 rounded text-[10px]">
                         {catName}
                       </span>
-                      <span>返信 {thread.posts_count || 0}件</span>
+                      <span>応答 {thread.posts_count || 0}件</span>
                     </div>
 
                     <h3 className="text-base font-normal leading-snug text-[#1A1F2C] line-clamp-2">
@@ -541,22 +575,22 @@ export default function LabPage() {
             )}
           </div>
 
-          {/* 右カラム：アクティブスレッドの本文＆対話レス表示 */}
+          {/* 右カラム：アクティブスレッドの本文＆対話応答表示 */}
           <div className="lg:col-span-7 space-y-6">
             {activeThread ? (
               <div className="space-y-6">
                 
                 {/* スレッド本文カード */}
-                <div className="bg-white border border-[#E2DDD5] rounded-lg p-6 md:p-8 space-y-4 shadow-sm">
-                  <div className="border-b border-stone-100 pb-3 flex justify-between items-start gap-4">
-                    <div>
-                      <span className="text-[10px] font-sans px-2 py-0.5 bg-[#EAE4D8] text-stone-800 rounded mb-2 inline-block">
-                        {activeThread.forum_categories?.name || '対話空間'}
-                      </span>
-                      <h2 className="text-xl font-normal text-[#1A1F2C]">
-                        {activeThread.title}
-                      </h2>
-                    </div>
+                <div className="bg-white border border-[#E2DDD5] rounded-lg p-6 md:p-8 space-y-4 shadow-sm relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-[#D4A359]/10 to-transparent pointer-events-none rounded-bl-full" />
+
+                  <div className="border-b border-stone-100 pb-4 space-y-2">
+                    <span className="text-[10px] font-sans px-2.5 py-0.5 bg-[#EAE4D8] text-stone-800 rounded inline-block font-medium">
+                      {activeThread.forum_categories?.name || '対話空間'}
+                    </span>
+                    <h2 className="text-xl md:text-2xl font-normal text-[#1A1F2C] tracking-wide">
+                      {activeThread.title}
+                    </h2>
                   </div>
 
                   <p className="text-sm text-stone-800 font-serif whitespace-pre-wrap leading-relaxed py-2">
@@ -565,12 +599,17 @@ export default function LabPage() {
 
                   <div className="pt-3 border-t border-stone-100 flex justify-between items-center text-xs font-sans text-stone-500">
                     <div className="font-serif">
-                      問いかけた人：
+                      発言者：
                       <span className="font-medium text-[#1A1F2C]">
                         {activeThread.profiles?.display_name || activeThread.profiles?.username || '無名の表現者'}
                       </span>
                       {currentUser && activeThread.author_id === currentUser.id && (
                         <span className="ml-1 text-[11px] text-stone-400 font-sans">（あなた）</span>
+                      )}
+                      {activeThread.profiles?.role === 'advisor' && (
+                        <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-[#D4A359]/20 text-[#8C621C] rounded font-sans">
+                          特別選者
+                        </span>
                       )}
                     </div>
                     <span>{new Date(activeThread.created_at).toLocaleDateString('ja-JP')}</span>
@@ -579,17 +618,21 @@ export default function LabPage() {
 
                 {/* 返信・応答一覧 */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-sans tracking-widest text-stone-500 uppercase">
-                    寄せられた対話・応答 ({activePosts.length}件)
-                  </h3>
+                  <div className="border-b border-stone-200 pb-2 flex justify-between items-center">
+                    <h3 className="text-xs font-sans tracking-widest text-stone-500 uppercase">
+                      寄せられた応答・対話 ({activePosts.length}件)
+                    </h3>
+                    <span className="text-[11px] text-stone-400 font-sans">言葉を継ぐ</span>
+                  </div>
 
                   {loadingPosts ? (
                     <div className="p-6 text-center text-xs font-sans text-stone-400 bg-white border border-[#E2DDD5] rounded">
                       応答を読み込んでいます...
                     </div>
                   ) : activePosts.length === 0 ? (
-                    <div className="p-6 text-center text-xs font-sans text-stone-500 bg-white border border-[#E2DDD5] rounded">
-                      まだこの問いへの応答はありません。最初の言葉を届けてみませんか。
+                    <div className="p-6 text-center text-xs font-sans text-stone-500 bg-white border border-[#E2DDD5] rounded space-y-1">
+                      <p>まだこの問いへの応答はありません。</p>
+                      <p className="text-[11px] text-stone-400">静かに言葉を受け止め、最初の応答を寄せてみませんか。</p>
                     </div>
                   ) : (
                     activePosts.map((post) => {
@@ -600,7 +643,7 @@ export default function LabPage() {
                       return (
                         <div
                           key={post.id}
-                          className="bg-white border border-[#E2DDD5] rounded-lg p-5 space-y-3 shadow-sm"
+                          className="bg-white border border-[#E2DDD5] rounded-lg p-5 space-y-3 shadow-sm hover:border-stone-300 transition-colors"
                         >
                           <div className="flex justify-between items-center text-xs font-sans text-stone-500">
                             <span className="font-serif font-medium text-[#1A1F2C]">
@@ -630,8 +673,8 @@ export default function LabPage() {
 
                 {/* 返信フォーム */}
                 <div className="bg-white border border-[#E2DDD5] rounded-lg p-6 space-y-4 shadow-sm">
-                  <h3 className="text-xs font-sans tracking-widest text-stone-600 uppercase border-b border-stone-100 pb-2">
-                    この問いに応答（返信）する
+                  <h3 className="text-xs font-sans tracking-widest text-stone-600 uppercase border-b border-stone-100 pb-2 font-medium">
+                    この問いに応答（返信）を寄せる
                   </h3>
 
                   {replyStatus && (
@@ -651,7 +694,7 @@ export default function LabPage() {
                       rows={3}
                       value={replyContent}
                       onChange={(e) => setReplyContent(e.target.value)}
-                      placeholder="問いに対する自らの思考や応答を記してください..."
+                      placeholder="問いに対する自らの思考や言葉を静かに記してください..."
                       className="w-full p-3 border border-[#E2DDD5] rounded text-sm bg-[#FBF9F5]/40 font-serif focus:outline-none focus:border-[#1A1F2C] resize-y"
                       disabled={isSubmittingReply}
                     />
@@ -685,7 +728,7 @@ export default function LabPage() {
               </div>
             ) : (
               <div className="p-12 text-center bg-white border border-[#E2DDD5] rounded-lg text-xs font-sans text-stone-500">
-                左側のリストから問いを選択してください。
+                左側のリストから問いを選択すると、詳細と対話がここに表示されます。
               </div>
             )}
           </div>
