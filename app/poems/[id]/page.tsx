@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 interface Profile {
@@ -21,7 +22,7 @@ interface Poem {
   status: 'draft' | 'published'
   published_at: string | null
   created_at: string
-  author?: Profile
+  profiles?: Profile
 }
 
 interface Review {
@@ -31,16 +32,19 @@ interface Review {
   content: string
   is_official_curation: boolean
   created_at: string
-  reviewer?: Profile
+  profiles?: Profile
 }
 
-export default function PoemDetailPage({ params }: { params: { id: string } }) {
+export default function PoemDetailPage() {
+  const params = useParams()
+  const poemId = params?.id as string
+
   const [poem, setPoem] = useState<Poem | null>(null)
   const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // 表示モード（初期値は作品の設定、読者が切り替え可能）
+  // 表示モード（初期値は縦書き、読者が切り替え可能）
   const [viewWritingMode, setViewWritingMode] = useState<'vertical' | 'horizontal'>('vertical')
 
   // 新規鑑賞文入力状態
@@ -55,9 +59,10 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
 
   useEffect(() => {
+    if (!poemId) return
     fetchPoemAndReviews()
     checkCurrentUser()
-  }, [params.id])
+  }, [poemId])
 
   async function checkCurrentUser() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -69,12 +74,12 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
       setLoading(true)
       setError(null)
 
-      // 詩作品の取得
+      // 詩作品の取得（profiles テーブルとの結合）
       const { data: poemData, error: poemError } = await supabase
         .from('poems')
         .select(`
           *,
-          author:profiles!author_id (
+          profiles (
             id,
             username,
             display_name,
@@ -82,14 +87,15 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
             role
           )
         `)
-        .eq('id', params.id)
+        .eq('id', poemId)
         .single()
 
       if (poemError || !poemData) {
-        throw new Error('作品が見つからないか、非公開に設定されています。')
+        console.error('詩篇取得エラー詳細:', poemError)
+        throw new Error('作品が見つからないか、アクセス権限がありません。')
       }
 
-      setPoem(poemData as Poem)
+      setPoem(poemData as unknown as Poem)
       setViewWritingMode(poemData.writing_mode || 'vertical')
 
       // 鑑賞文・選評の取得
@@ -97,7 +103,7 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
         .from('poem_reviews')
         .select(`
           *,
-          reviewer:profiles!reviewer_id (
+          profiles (
             id,
             username,
             display_name,
@@ -105,14 +111,14 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
             role
           )
         `)
-        .eq('poem_id', params.id)
+        .eq('poem_id', poemId)
         .order('is_official_curation', { ascending: false })
         .order('created_at', { ascending: true })
 
       if (reviewError) {
-        console.error('鑑賞文取得エラー:', reviewError)
+        console.error('鑑賞文取得エラー詳細:', reviewError)
       } else {
-        setReviews((reviewData || []) as Review[])
+        setReviews((reviewData || []) as unknown as Review[])
       }
     } catch (err: any) {
       setError(err.message || '読み込み中にエラーが発生しました。')
@@ -147,14 +153,14 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
       const { data, error: insertError } = await supabase
         .from('poem_reviews')
         .insert({
-          poem_id: params.id,
+          poem_id: poemId,
           reviewer_id: currentUser.id,
           content: newReviewContent.trim(),
           is_official_curation: false,
         })
         .select(`
           *,
-          reviewer:profiles!reviewer_id (
+          profiles (
             id,
             username,
             display_name,
@@ -166,7 +172,7 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
 
       if (insertError) throw insertError
 
-      setReviews((prev) => [...prev, data as Review])
+      setReviews((prev) => [...prev, data as unknown as Review])
       setNewReviewContent('')
       setReviewEthicsAgreed(false)
       setReviewStatusMsg({ type: 'success', text: '言葉を繋ぐ鑑賞文を投稿しました。' })
@@ -182,7 +188,7 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
       <div className="min-h-screen bg-[#FBF9F5] text-[#1A1F2C] flex items-center justify-center font-serif">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-[#D4A359] border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-[#5A6275] tracking-widest text-sm">言葉の空間を読み込んでいます...</p>
+          <p className="text-[#5A6275] tracking-widest text-sm font-sans">言葉の空間を読み込んでいます...</p>
         </div>
       </div>
     )
@@ -193,10 +199,10 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
       <div className="min-h-screen bg-[#FBF9F5] text-[#1A1F2C] flex items-center justify-center font-serif px-4">
         <div className="max-w-md w-full bg-white border border-[#E5E0D8] p-8 text-center rounded space-y-6 shadow-sm">
           <h1 className="text-xl font-medium text-[#1A1F2C]">作品が見つかりません</h1>
-          <p className="text-sm text-[#5A6275] leading-relaxed">{error}</p>
+          <p className="text-sm text-[#5A6275] leading-relaxed font-sans">{error}</p>
           <Link
             href="/"
-            className="inline-block px-6 py-2 bg-[#1A1F2C] text-[#FBF9F5] text-xs tracking-widest rounded hover:bg-[#2C3448] transition-colors"
+            className="inline-block px-6 py-2 bg-[#1A1F2C] text-[#FBF9F5] text-xs tracking-widest rounded hover:bg-[#2C3448] transition-colors font-sans"
           >
             トップページへ戻る
           </Link>
@@ -215,14 +221,14 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <Link
             href="/"
-            className="text-xs tracking-widest text-[#5A6275] hover:text-[#1A1F2C] transition-colors flex items-center space-x-1"
+            className="text-xs tracking-widest text-[#5A6275] hover:text-[#1A1F2C] transition-colors flex items-center space-x-1 font-sans"
           >
             <span>←</span>
             <span>トップ目次へ</span>
           </Link>
 
           {/* 縦書き・横書き表示切り替え */}
-          <div className="flex items-center space-x-1 bg-[#EBE6DD] p-1 rounded text-xs tracking-wider">
+          <div className="flex items-center space-x-1 bg-[#EBE6DD] p-1 rounded text-xs tracking-wider font-sans">
             <button
               onClick={() => setViewWritingMode('vertical')}
               className={`px-3 py-1 rounded transition-all ${
@@ -255,20 +261,20 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
           {/* メタ情報 */}
           <div className="mb-12 border-b border-[#E5E0D8] pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <span className="text-xs text-[#8C92A4] tracking-widest uppercase block mb-1">Poem</span>
+              <span className="text-xs text-[#8C92A4] tracking-widest uppercase block mb-1 font-sans">Poem</span>
               <h1 className="text-2xl md:text-3xl font-bold tracking-wider text-[#1A1F2C]">{poem.title}</h1>
             </div>
 
             <div className="text-right md:text-right space-y-1">
               <p className="text-sm font-medium text-[#1A1F2C]">
-                {poem.author?.display_name || poem.author?.username || '無名の表現者'}
-                {poem.author?.role === 'advisor' && (
-                  <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-[#D4A359]/20 text-[#8C621C] rounded tracking-wider">
+                {poem.profiles?.display_name || poem.profiles?.username || '無名の表現者'}
+                {poem.profiles?.role === 'advisor' && (
+                  <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-[#D4A359]/20 text-[#8C621C] rounded tracking-wider font-sans">
                     特別選者
                   </span>
                 )}
               </p>
-              <p className="text-xs text-[#8C92A4] tracking-widest">
+              <p className="text-xs text-[#8C92A4] tracking-widest font-sans">
                 {poem.published_at ? new Date(poem.published_at).toLocaleDateString('ja-JP') : ''}
               </p>
             </div>
@@ -309,9 +315,9 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
             <div className="space-y-6">
               {officialReviews.map((review) => (
                 <div key={review.id} className="space-y-3">
-                  <div className="flex items-center justify-between text-xs text-[#8C92A4]">
-                    <span className="font-medium text-[#1A1F2C]">
-                      {review.reviewer?.display_name || review.reviewer?.username} （選評）
+                  <div className="flex items-center justify-between text-xs text-[#8C92A4] font-sans">
+                    <span className="font-medium text-[#1A1F2C] font-serif">
+                      {review.profiles?.display_name || review.profiles?.username} （選評）
                     </span>
                     <span>{new Date(review.created_at).toLocaleDateString('ja-JP')}</span>
                   </div>
@@ -329,11 +335,11 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
           <div className="border-b border-[#E5E0D8] pb-4 flex items-center justify-between">
             <h2 className="text-lg font-medium tracking-widest text-[#1A1F2C] flex items-center space-x-2">
               <span>読者からの鑑賞文（Pratyaya）</span>
-              <span className="text-xs bg-[#EBE6DD] text-[#5A6275] px-2 py-0.5 rounded-full">
+              <span className="text-xs bg-[#EBE6DD] text-[#5A6275] px-2 py-0.5 rounded-full font-sans">
                 {generalReviews.length}
               </span>
             </h2>
-            <span className="text-xs text-[#8C92A4] tracking-wider">数字なき深層対話</span>
+            <span className="text-xs text-[#8C92A4] tracking-wider font-sans">数字なき深層対話</span>
           </div>
 
           {/* 鑑賞文一覧 */}
@@ -346,9 +352,9 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
             <div className="space-y-4">
               {generalReviews.map((review) => (
                 <div key={review.id} className="bg-white border border-[#E5E0D8] rounded-lg p-6 space-y-3 shadow-sm hover:border-[#D4A359]/50 transition-colors">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-[#1A1F2C]">
-                      {review.reviewer?.display_name || review.reviewer?.username || '静かな読者'}
+                  <div className="flex items-center justify-between text-xs font-sans">
+                    <span className="font-medium text-[#1A1F2C] font-serif">
+                      {review.profiles?.display_name || review.profiles?.username || '静かな読者'}
                     </span>
                     <span className="text-[#8C92A4]">
                       {new Date(review.created_at).toLocaleDateString('ja-JP')}
@@ -370,7 +376,7 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
 
             {reviewStatusMsg && (
               <div
-                className={`p-4 rounded text-xs leading-relaxed ${
+                className={`p-4 rounded text-xs leading-relaxed font-sans ${
                   reviewStatusMsg.type === 'success'
                     ? 'bg-[#E8F3EE] text-[#1D5C42] border border-[#B3DBC8]'
                     : 'bg-[#FDF2F2] text-[#9B2C2C] border border-[#F8B4B4]'
@@ -382,7 +388,7 @@ export default function PoemDetailPage({ params }: { params: { id: string } }) {
 
             <form onSubmit={handleReviewSubmit} className="space-y-6">
               <div>
-                <label className="block text-xs text-[#5A6275] tracking-wider mb-2">
+                <label className="block text-xs text-[#5A6275] tracking-wider mb-2 font-sans">
                   言葉の響きや像（イメージ）についての鑑賞・考察
                 </label>
                 <textarea
