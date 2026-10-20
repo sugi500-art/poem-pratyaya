@@ -1,4 +1,3 @@
-
 'use client'
 
 import React, { useEffect, useState } from 'react'
@@ -35,7 +34,8 @@ export default function HomePage() {
         setError(null)
         const supabase = createClient()
 
-        const { data, fetchError } = await supabase
+        // 公開済みの詩篇を取得（error: fetchError として分割代入）
+        const { data, error: fetchError } = await supabase
           .from('poems')
           .select(`
             id,
@@ -71,22 +71,23 @@ export default function HomePage() {
     }
   }, [])
 
+  // 特選作品（先頭の作品）
   const featuredPoem = poems.length > 0 ? poems[0] : null
 
   return (
-    <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif py-12 px-4 sm:px-6 lg:px-8 selection:bg-[#D4A359]/20 transition-colors duration-300">
+    <div className="min-h-screen bg-[#FBF9F5] text-[#1A1F2C] font-serif py-12 px-4 sm:px-6 lg:px-8 selection:bg-[#D4A359]/20">
       <div className="max-w-5xl mx-auto space-y-16">
 
         {/* ヒーローエリア：月刊キュレーション（特選作品） */}
-        <section className="bg-white/90 dark:bg-[#242B3B]/90 p-8 sm:p-12 rounded-lg border border-stone-200/80 dark:border-stone-700/60 shadow-sm space-y-6 relative overflow-hidden backdrop-blur-sm transition-colors duration-300">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-stone-100 dark:border-stone-700/50 pb-4 gap-2">
+        <section className="bg-white/90 p-8 sm:p-12 rounded-lg border border-stone-200/80 shadow-sm space-y-6 relative overflow-hidden backdrop-blur-sm">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-stone-100 pb-4 gap-2">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-[#D4A359]" />
               <p className="text-xs font-sans tracking-widest text-[#D4A359] uppercase font-medium">
                 Poem pratyaya — Monthly Curation
               </p>
             </div>
-            <span className="text-[11px] font-sans text-stone-400 dark:text-stone-400">
+            <span className="text-[11px] font-sans text-stone-400">
               順位付けを行わない特選詩篇
             </span>
           </div>
@@ -94,46 +95,45 @@ export default function HomePage() {
           {featuredPoem ? (
             <div className="space-y-6">
               <div className="space-y-2">
-                <h1 className="text-2xl sm:text-3xl font-normal tracking-wide text-[#1A1F2C] dark:text-[#EAE8E3]">
+                <h1 className="text-2xl sm:text-3xl font-normal tracking-wide text-[#1A1F2C]">
                   『{featuredPoem.title}』
                 </h1>
-                <p className="text-xs text-stone-600 dark:text-stone-300 font-sans">
+                <p className="text-xs text-stone-600 font-sans">
                   詩人：{featuredPoem.profiles?.display_name || '無名の表現者'}
                 </p>
               </div>
 
-              {/* 抜粋本文（深藍・生成り背景の和紙プレビュー） */}
-              <div className="p-6 bg-[#FBF9F5]/80 dark:bg-[#1A1F2C]/80 border-l-2 border-[#D4A359] rounded-r text-sm leading-loose text-stone-800 dark:text-[#EAE8E3] font-serif whitespace-pre-wrap max-h-48 overflow-hidden text-ellipsis shadow-inner">
+              {/* 抜粋本文 */}
+              <div className="p-6 bg-[#FBF9F5]/80 border-l-2 border-[#D4A359] rounded-r text-sm leading-loose text-stone-800 font-serif whitespace-pre-wrap max-h-48 overflow-hidden text-ellipsis shadow-inner">
                 {featuredPoem.content}
               </div>
 
               {/* 選者による鑑賞文の抜粋 */}
-              <div className="pt-2 text-xs font-sans text-stone-600 dark:text-stone-300 italic flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-t border-stone-100/80 dark:border-stone-700/50">
-                <p className="font-serif text-stone-700 dark:text-stone-200 leading-relaxed">
+              <div className="pt-2 text-xs font-sans text-stone-600 italic flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-t border-stone-100/80">
+                <p className="font-serif text-stone-700 leading-relaxed">
                   選者鑑賞：「言葉の響きが、私たちの内に潜む傷と静かに対話し照らし出す...」
                 </p>
                 <Link
                   href={`/poems/${featuredPoem.id}`}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs font-sans rounded hover:bg-stone-800 dark:hover:bg-[#C29248] transition tracking-wider shrink-0 shadow-sm font-medium"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1A1F2C] text-[#FBF9F5] text-xs font-sans rounded hover:bg-stone-800 transition tracking-wider shrink-0 shadow-sm"
                 >
                   この一篇を深く鑑賞する →
                 </Link>
               </div>
             </div>
           ) : (
-            /* データ準備中・初期案内カード */
             <div className="py-8 text-center space-y-4">
-              <h2 className="text-xl font-normal text-[#1A1F2C] dark:text-[#EAE8E3]">
+              <h2 className="text-xl font-normal text-[#1A1F2C]">
                 言葉の聖域へ、ようこそ
               </h2>
-              <p className="text-xs text-stone-600 dark:text-stone-300 font-sans max-w-lg mx-auto leading-relaxed">
+              <p className="text-xs text-stone-600 font-sans max-w-lg mx-auto leading-relaxed">
                 Poem pratyaya は評価や競い合いを離れ、言葉と静かに対話する場所です。<br className="hidden sm:inline" />
                 現在、最初の一篇の投ぜられる刻（とき）を静かに待っています。
               </p>
               <div className="pt-2">
                 <Link
                   href="/poems/new"
-                  className="inline-block px-6 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs font-sans rounded hover:bg-stone-800 dark:hover:bg-[#C29248] transition shadow-sm font-medium"
+                  className="inline-block px-6 py-2.5 bg-[#1A1F2C] text-[#FBF9F5] text-xs font-sans rounded hover:bg-stone-800 transition shadow-sm"
                 >
                   最初の一篇を紡ぐ（月3作制限）
                 </Link>
@@ -142,14 +142,14 @@ export default function HomePage() {
           )}
         </section>
 
-        {/* メインコンテンツ：新しく投ぜられた詩篇（数字非表示の静かな目次） */}
+        {/* メインコンテンツ：新しく投ぜられた詩篇 */}
         <section className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between border-b border-stone-200/80 dark:border-stone-700/60 pb-3 gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between border-b border-stone-200/80 pb-3 gap-2">
             <div>
-              <h2 className="text-xl font-normal tracking-wide text-[#1A1F2C] dark:text-[#EAE8E3]">
+              <h2 className="text-xl font-normal tracking-wide text-[#1A1F2C]">
                 新しく投ぜられた詩篇
               </h2>
-              <p className="text-xs text-stone-500 dark:text-stone-400 font-sans mt-1">
+              <p className="text-xs text-stone-500 font-sans mt-1">
                 一作一作の尊厳に向き合うため、PV数や「いいね数」などの数字は表示しません。
               </p>
             </div>
@@ -167,7 +167,7 @@ export default function HomePage() {
               <p>静かに作品を読み込んでいます...</p>
             </div>
           ) : error ? (
-            <div className="bg-rose-50/80 dark:bg-rose-950/40 p-6 text-center rounded border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-sans">
+            <div className="bg-rose-50/80 p-6 text-center rounded border border-rose-200 text-xs text-rose-700 font-sans">
               {error}
             </div>
           ) : poems.length > 0 ? (
@@ -176,18 +176,18 @@ export default function HomePage() {
                 <Link
                   key={poem.id}
                   href={`/poems/${poem.id}`}
-                  className="block p-6 bg-white/90 dark:bg-[#242B3B]/90 rounded-lg border border-stone-200/80 dark:border-stone-700/60 hover:border-stone-400 dark:hover:border-stone-500 hover:shadow-md transition space-y-3 group"
+                  className="block p-6 bg-white/90 rounded-lg border border-stone-200/80 hover:border-stone-400 hover:shadow-md transition space-y-3 group"
                 >
-                  <h3 className="text-base font-normal text-[#1A1F2C] dark:text-[#EAE8E3] group-hover:text-[#D4A359] transition truncate">
+                  <h3 className="text-base font-normal text-[#1A1F2C] group-hover:text-[#D4A359] transition truncate">
                     {poem.title}
                   </h3>
-                  <p className="text-xs text-stone-500 dark:text-stone-400 font-sans">
+                  <p className="text-xs text-stone-500 font-sans">
                     {poem.profiles?.display_name || '無名の表現者'}
                   </p>
-                  <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-3 font-serif whitespace-pre-wrap">
+                  <p className="text-xs text-stone-600 leading-relaxed line-clamp-3 font-serif whitespace-pre-wrap">
                     {poem.content}
                   </p>
-                  <div className="pt-2 flex justify-between items-center text-[11px] font-sans text-stone-400 dark:text-stone-400 border-t border-stone-100 dark:border-stone-700/50">
+                  <div className="pt-2 flex justify-between items-center text-[11px] font-sans text-stone-400 border-t border-stone-100">
                     <span>{new Date(poem.published_at).toLocaleDateString('ja-JP')}</span>
                     <span className="text-[#D4A359] font-serif group-hover:underline">
                       Pratyaya（応答）を観る
@@ -197,53 +197,53 @@ export default function HomePage() {
               ))}
             </div>
           ) : (
-            <div className="bg-white/60 dark:bg-[#242B3B]/60 p-12 text-center rounded border border-stone-200/60 dark:border-stone-700/50 text-xs text-stone-500 dark:text-stone-400 font-sans">
+            <div className="bg-white/60 p-12 text-center rounded border border-stone-200/60 text-xs text-stone-500 font-sans">
               まだ公開された詩篇はありません。最初の一篇の投稿をお待ちしています。
             </div>
           )}
         </section>
 
-        {/* 対話空間セクション：Pratyaya Lab への誘い */}
-        <section className="bg-amber-50/50 dark:bg-[#242B3B]/80 p-8 rounded-lg border border-amber-200/70 dark:border-stone-700/60 space-y-4 shadow-sm">
+        {/* 対話空間セクション：Pratyaya Lab */}
+        <section className="bg-amber-50/50 p-8 rounded-lg border border-amber-200/70 space-y-4 shadow-sm">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="space-y-1">
               <p className="text-xs font-sans tracking-widest text-[#D4A359] uppercase font-medium">
                 Pratyaya Lab — Dialogue Room
               </p>
-              <h3 className="text-lg font-normal text-[#1A1F2C] dark:text-[#EAE8E3]">
+              <h3 className="text-lg font-normal text-[#1A1F2C]">
                 対話と深層批判の部屋
               </h3>
-              <p className="text-xs text-stone-600 dark:text-stone-300 font-sans leading-relaxed">
+              <p className="text-xs text-stone-600 font-sans leading-relaxed">
                 人格攻撃を排し、言葉の構造や響き（Vāc & Logos）について誠実に語り合うフォーラムです。
               </p>
             </div>
             <Link
               href="/lab"
-              className="px-5 py-2.5 bg-white dark:bg-[#1A1F2C] border border-stone-300 dark:border-stone-600 text-stone-800 dark:text-stone-200 text-xs font-sans rounded hover:bg-stone-50 dark:hover:bg-stone-800 transition shadow-sm shrink-0 font-medium"
+              className="px-5 py-2.5 bg-white border border-stone-300 text-stone-800 text-xs font-sans rounded hover:bg-stone-50 transition shadow-sm shrink-0 font-medium"
             >
               フォーラムへ入る →
             </Link>
           </div>
         </section>
 
-        {/* フッター：マニフェスト宣言 */}
-        <footer className="pt-8 border-t border-stone-200/80 dark:border-stone-700/60 text-center space-y-4">
-          <p className="text-xs font-serif italic text-stone-600 dark:text-stone-300 max-w-xl mx-auto leading-relaxed">
+        {/* フッター */}
+        <footer className="pt-8 border-t border-stone-200/80 text-center space-y-4">
+          <p className="text-xs font-serif italic text-stone-600 max-w-xl mx-auto leading-relaxed">
             「言葉は、誰かを打ち負かすための武器ではなく、<br className="hidden sm:inline" />
             他者の尊厳と深く触れ合う（Pratyaya）ための光である」
           </p>
-          <div className="flex justify-center space-x-6 text-xs font-sans text-stone-500 dark:text-stone-400">
-            <Link href="/terms" className="hover:text-[#1A1F2C] dark:hover:text-[#EAE8E3] transition">
+          <div className="flex justify-center space-x-6 text-xs font-sans text-stone-500">
+            <Link href="/terms" className="hover:text-[#1A1F2C] transition">
               利用規約・倫理指針
             </Link>
-            <Link href="/lab" className="hover:text-[#1A1F2C] dark:hover:text-[#EAE8E3] transition">
+            <Link href="/lab" className="hover:text-[#1A1F2C] transition">
               Pratyaya Lab
             </Link>
-            <Link href="/auth/signup" className="hover:text-[#1A1F2C] dark:hover:text-[#EAE8E3] transition">
+            <Link href="/auth/signup" className="hover:text-[#1A1F2C] transition">
               新規登録
             </Link>
           </div>
-          <p className="text-[11px] font-sans text-stone-400 dark:text-stone-500">
+          <p className="text-[11px] font-sans text-stone-400">
             © 2026 Poem pratyaya. All rights reserved.
           </p>
         </footer>
