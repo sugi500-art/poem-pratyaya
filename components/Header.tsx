@@ -1,164 +1,149 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function Header() {
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [isDark, setIsDark] = useState<boolean>(false)
+  const [loading, setLoading] = useState<boolean>(true)
   const router = useRouter()
   const supabase = createClient()
-  const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
 
-  // ダークモード状態管理
-  const [isDarkMode, setIsDarkMode] = useState(false)
-
-  // テーマ初期化（localStorage または OS設定を検出）
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme')
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    // ユーザー情報の初期取得
+    async function getUser() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        setCurrentUser(user)
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    getUser()
 
-    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-      setIsDarkMode(true)
+    // 認証状態の変化をリアルタイム監視（ログイン・ログアウトが即時反映されます）
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null)
+      setLoading(false)
+    })
+
+    // ダークモードの初期判定
+    const isDarkMode =
+      document.documentElement.classList.contains('dark') ||
+      localStorage.getItem('theme') === 'dark' ||
+      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+    setIsDark(isDarkMode)
+    if (isDarkMode) {
       document.documentElement.classList.add('dark')
     } else {
-      setIsDarkMode(false)
       document.documentElement.classList.remove('dark')
     }
-  }, [])
 
-  // ダークモード切り替えハンドラ
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [supabase])
+
+  // ダークモード切り替え
   const toggleDarkMode = () => {
-    if (isDarkMode) {
+    if (isDark) {
       document.documentElement.classList.remove('dark')
       localStorage.setItem('theme', 'light')
-      setIsDarkMode(false)
+      setIsDark(false)
     } else {
       document.documentElement.classList.add('dark')
       localStorage.setItem('theme', 'dark')
-      setIsDarkMode(true)
+      setIsDark(true)
     }
   }
 
-  // プロファイル（筆名）を取得・補完する関数
-  const fetchProfile = async (userId: string, userEmail?: string, metadata?: any) => {
-    try {
-      const { data } = await supabase
-        .from('profiles')
-        .select('display_name, username')
-        .eq('id', userId)
-        .single()
-
-      if (data) {
-        setProfile(data)
-      } else {
-        const metaDisplayName = metadata?.display_name || userEmail || '無名の表現者'
-        const metaUsername = metadata?.username || `user_${userId.slice(0, 8)}`
-
-        await supabase.from('profiles').upsert({
-          id: userId,
-          display_name: metaDisplayName,
-          username: metaUsername,
-          role: 'user'
-        })
-
-        setProfile({ display_name: metaDisplayName, username: metaUsername })
-      }
-    } catch (err) {
-      console.error('プロファイル取得エラー:', err)
-    }
-  }
-
-  useEffect(() => {
-    async function loadInitialUser() {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-
-      if (user) {
-        await fetchProfile(user.id, user.email, user.user_metadata)
-      }
-      setLoading(false)
-    }
-
-    loadInitialUser()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-
-      if (currentUser) {
-        await fetchProfile(currentUser.id, currentUser.email, currentUser.user_metadata)
-      } else {
-        setProfile(null)
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [supabase])
-
-  const handleLogout = async () => {
+  // ログアウト処理
+  const handleSignOut = async () => {
     await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
+    setCurrentUser(null)
     router.push('/')
     router.refresh()
   }
 
   return (
-    <header className="border-b border-[#E2DDD5] dark:border-[#2C3448] bg-[#FBF9F5]/90 dark:bg-[#1A1F2C]/90 backdrop-blur sticky top-0 z-40 px-6 py-4 font-serif transition-colors duration-300">
+    <header className="border-b border-stone-200/80 dark:border-stone-800 bg-[#FBF9F5]/90 dark:bg-[#1A1F2C]/90 backdrop-blur sticky top-0 z-50 px-6 py-4 font-serif">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
-
-        <Link href="/" className="text-base font-semibold tracking-widest text-[#1A1F2C] dark:text-[#EAE8E3] hover:text-[#D4A359] dark:hover:text-[#D4A359] transition-colors">
+        
+        {/* ロゴ / サイト名 */}
+        <Link href="/" className="text-base font-normal tracking-widest text-[#1A1F2C] dark:text-[#EAE8E3] hover:text-[#D4A359] transition">
           Poem pratyaya
         </Link>
 
-        <div className="flex items-center space-x-5 text-xs font-sans">
-          {/* ダークモード切替ボタン */}
+        {/* ナビゲーションメニュー */}
+        <nav className="flex items-center gap-3 sm:gap-5 text-xs font-sans">
+          <Link href="/poems" className="text-stone-600 dark:text-stone-300 hover:text-[#D4A359] transition">
+            詩篇目録
+          </Link>
+          <Link href="/lab" className="text-stone-600 dark:text-stone-300 hover:text-[#D4A359] transition">
+            対話（Pratyaya Lab）
+          </Link>
+          <Link href="/terms" className="text-stone-600 dark:text-stone-300 hover:text-[#D4A359] transition">
+            理念・規約
+          </Link>
+
+          {/* ダークモード表示切替ボタン */}
           <button
             onClick={toggleDarkMode}
-            aria-label="テーマ切替"
-            className="p-1.5 rounded-full bg-[#EBE6DD] dark:bg-[#2A3245] text-[#1A1F2C] dark:text-[#EAE8E3] hover:text-[#D4A359] dark:hover:text-[#D4A359] transition-all shadow-sm"
-            title={isDarkMode ? '昼の紙面（生成り）へ' : '夜の灯火（深藍）へ'}
+            aria-label="表示モード切り替え"
+            className="p-1.5 rounded-full text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800 transition"
+            title={isDark ? '生成り（ライト）モードへ切り替え' : '深藍（ダーク）モードへ切り替え'}
           >
-            {isDarkMode ? '☀️' : '🌙'}
+            {isDark ? (
+              <svg className="w-4 h-4 text-[#D4A359]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
           </button>
 
-          {loading ? (
-            <span className="text-stone-400 dark:text-stone-500">...</span>
-          ) : user ? (
-            <>
-              <span className="text-stone-700 dark:text-[#EAE8E3] font-serif font-medium hidden sm:inline">
-                {profile?.display_name || '無名の表現者'}
-              </span>
+          {/* ログイン・ログアウト・マイページ分岐 */}
+          {!loading && (
+            currentUser ? (
+              <div className="flex items-center gap-2 sm:gap-3 pl-2 border-l border-stone-300 dark:border-stone-700">
+                <Link
+                  href={`/profile/${currentUser.user_metadata?.username || 'mypage'}`}
+                  className="text-stone-800 dark:text-stone-200 font-medium hover:text-[#D4A359] transition"
+                >
+                  マイページ
+                </Link>
+                <Link
+                  href="/poems/new"
+                  className="px-3 py-1.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded hover:opacity-90 transition font-medium"
+                >
+                  詩を紡ぐ
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="px-2.5 py-1.5 text-stone-500 dark:text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 transition"
+                  title="ログアウト"
+                >
+                  ログアウト
+                </button>
+              </div>
+            ) : (
               <Link
-                href="/poems/new"
-                className="px-3 py-1.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded hover:bg-stone-800 dark:hover:bg-[#C29248] transition tracking-wider font-serif font-medium"
+                href="/auth/login"
+                className="px-3 py-1.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded hover:opacity-90 transition font-medium"
               >
-                一篇を紡ぐ
+                ログイン / 登録
               </Link>
-              <button
-                onClick={handleLogout}
-                className="text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-[#EAE8E3] transition"
-              >
-                ログアウト
-              </button>
-            </>
-          ) : (
-            <>
-              <Link href="/auth/login" className="text-stone-600 dark:text-[#EAE8E3] hover:text-[#1A1F2C] dark:hover:text-[#D4A359] transition">
-                ログイン
-              </Link>
-              <Link
-                href="/auth/signup"
-                className="px-3 py-1.5 border border-[#1A1F2C] dark:border-[#D4A359] text-[#1A1F2C] dark:text-[#D4A359] rounded hover:bg-[#1A1F2C] hover:text-[#FBF9F5] dark:hover:bg-[#D4A359] dark:hover:text-[#1A1F2C] transition"
-              >
-                新規登録
-              </Link>
-            </>
+            )
           )}
-        </div>
+        </nav>
 
       </div>
     </header>
