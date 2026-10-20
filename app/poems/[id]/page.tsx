@@ -1,9 +1,6 @@
 import React from 'react'
 import PoemDetailClient from './PoemDetailClient'
 
-// サーバー側での動的レンダリング設定
-export const dynamic = 'force-dynamic'
-
 export default async function PoemDetailPage({
   params,
 }: {
