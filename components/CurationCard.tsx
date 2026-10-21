@@ -10,7 +10,7 @@ interface CurationCardProps {
 }
 
 export default function CurationCard({
-  curatorName = '選者：三浦果実・杉原詠二',
+  curatorName = '選者鑑賞',
   curationComment,
   curatedAt,
   isFeatured = true,
@@ -68,3 +68,4 @@ export default function CurationCard({
     </section>
   )
 }
+
