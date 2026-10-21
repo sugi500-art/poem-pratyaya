@@ -1,197 +1,112 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export default function SignupPage() {
+export default function SignUpPage() {
   const [hasMounted, setHasMounted] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [agreedToEthics, setAgreedToEthics] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
+
+  const router = useRouter()
 
   useEffect(() => {
     setHasMounted(true)
   }, [])
 
-  // ビルド時の静的Prerenderエラーを回避
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!agreedToEthics) {
+      setErrorMsg('倫理ガイドラインへの同意が必要です。')
+      return
+    }
+
+    setLoading(true)
+    setErrorMsg(null)
+    setSuccessMsg(null)
+
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            display_name: displayName,
+          },
+        },
+      })
+
+      if (error) {
+        setErrorMsg(error.message)
+      } else {
+        setSuccessMsg('登録確認メールを送信しました。メールボックスをご確認ください。')
+      }
+    } catch (err: any) {
+      setErrorMsg('予期せぬエラーが発生しました。時間をおいて再度お試しください。')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ビルド時の静的Prerenderエラーを回避するガード
   if (!hasMounted) {
     return (
-      <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] py-20 text-center font-sans">
+      <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] flex items-center justify-center font-sans">
         <p className="text-sm text-gray-500 dark:text-stone-400">読み込んでいます...</p>
       </div>
     )
   }
 
   return (
-    // 既存の Signup ページの画面表示コード（JSX）
-  )
-}
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-
-export default function SignUpPage() {
-  const router = useRouter()
-  const supabase = createClient()
-
-  // フォーム状態
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [username, setUsername] = useState('')
-  const [displayName, setDisplayName] = useState('')
-  const [agreedToTerms, setAgreedToTerms] = useState(false)
-
-  // ステータス管理
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [errorMsg, setErrorMsg] = useState('')
-  const [successMsg, setSuccessMsg] = useState('')
-
-  // 新規登録処理
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setErrorMsg('')
-    setSuccessMsg('')
-
-    // 入力チェック
-    if (!email.trim() || !password || !username.trim() || !displayName.trim()) {
-      setErrorMsg('すべての必須項目を入力してください。')
-      return
-    }
-
-    if (password !== confirmPassword) {
-      setErrorMsg('パスワードと確認用パスワードが一致しません。')
-      return
-    }
-
-    if (password.length < 6) {
-      setErrorMsg('パスワードは6文字以上で設定してください。')
-      return
-    }
-
-    if (!agreedToTerms) {
-      setErrorMsg('利用規約および倫理ガイドラインへの同意が必要です。')
-      return
-    }
-
-    setIsSubmitting(true)
-
-    try {
-      // Supabase Auth へユーザー登録（メタデータとして username と display_name を送信）
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password,
-        options: {
-          data: {
-            username: username.trim().toLowerCase(),
-            display_name: displayName.trim(),
-          },
-        },
-      })
-
-      if (error) {
-        setErrorMsg(error.message || 'アカウント作成に失敗しました。')
-        setIsSubmitting(false)
-        return
-      }
-
-      // プロファイル情報を作成/補完（Supabase側トリガーと連携）
-      if (data.user) {
-        const { error: profileError } = await supabase.from('profiles').upsert({
-          id: data.user.id,
-          username: username.trim().toLowerCase(),
-          display_name: displayName.trim(),
-          role: 'user',
-        })
-
-        if (profileError) {
-          console.error('プロファイル作成補完:', profileError)
-        }
-      }
-
-      setSuccessMsg(
-        'アカウント登録を受け付けました。登録完了後、ログイン画面へ遷移します。'
-      )
-      
-      setTimeout(() => {
-        router.push('/auth/login')
-        router.refresh()
-      }, 2000)
-
-    } catch (err: any) {
-      setErrorMsg(`予期せぬエラーが発生しました: ${err?.message || ''}`)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-[#FBF9F5] text-[#1A1F2C] font-serif flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg border border-stone-200 shadow-sm">
-        
-        {/* ヘッダー */}
+    <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] flex items-center justify-center px-4 py-12 font-serif antialiased">
+      <div className="max-w-md w-full bg-white dark:bg-[#242B3B] p-8 rounded-xl border border-[#E2DDD5] dark:border-stone-800 shadow-sm space-y-6">
         <div className="text-center space-y-2">
-          <Link href="/" className="inline-block text-xs tracking-widest text-[#D4A359] uppercase font-sans font-medium">
-            Poem Pratyaya
-          </Link>
-          <h1 className="text-2xl font-normal tracking-wide text-[#1A1F2C]">
-            静かなる場へつながる
+          <h1 className="text-2xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
+            Poem pratyaya 会員登録
           </h1>
-          <p className="text-xs text-stone-500 font-sans leading-relaxed">
-            言葉を紡ぎ、他者の尊厳を深めるためのアカウントを作成します。
+          <p className="text-xs text-gray-600 dark:text-stone-400 font-sans">
+            言葉と思索を深める聖域へようこそ
           </p>
         </div>
 
-        {/* 成功メッセージ */}
-        {successMsg && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded text-xs leading-relaxed font-sans">
-            {successMsg}
-          </div>
-        )}
-
-        {/* エラーメッセージ */}
         {errorMsg && (
-          <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded text-xs leading-relaxed font-sans">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs rounded font-sans">
             {errorMsg}
           </div>
         )}
 
-        {/* 登録フォーム */}
-        <form onSubmit={handleSignUp} className="space-y-5 font-sans">
-          
-          {/* 筆名（表示名） */}
+        {successMsg && (
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs rounded font-sans">
+            {successMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSignUp} className="space-y-4 font-sans text-sm">
           <div>
-            <label className="block text-xs text-stone-600 mb-1">
-              筆名・表示名 <span className="text-rose-500">*</span>
+            <label className="block text-xs text-gray-700 dark:text-stone-300 mb-1">
+              筆名（表示名）
             </label>
             <input
               type="text"
               required
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="例：黒髪 / 静かな読者"
-              className="w-full p-2.5 border border-stone-300 rounded text-sm bg-[#FBF9F5]/40 font-serif focus:outline-none focus:border-[#1A1F2C]"
+              placeholder="例：黒髪"
+              className="w-full p-3 border border-[#E2DDD5] dark:border-stone-700 rounded bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#D4A359]"
             />
-            <p className="text-[11px] text-stone-400 mt-1">作品や鑑賞文に表示されるお名前です。</p>
           </div>
 
-          {/* ユーザーネーム（ID） */}
           <div>
-            <label className="block text-xs text-stone-600 mb-1">
-              ユーザーID（半角英数字） <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              pattern="[a-zA-Z0-9_-]+"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="例：kurokami_poetry"
-              className="w-full p-2.5 border border-stone-300 rounded text-sm bg-[#FBF9F5]/40 focus:outline-none focus:border-[#1A1F2C]"
-            />
-            <p className="text-[11px] text-stone-400 mt-1">識別用の固有IDです。</p>
-          </div>
-
-          {/* メールアドレス */}
-          <div>
-            <label className="block text-xs text-stone-600 mb-1">
-              メールアドレス <span className="text-rose-500">*</span>
+            <label className="block text-xs text-gray-700 dark:text-stone-300 mb-1">
+              メールアドレス
             </label>
             <input
               type="email"
@@ -199,80 +114,55 @@ export default function SignUpPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full p-2.5 border border-stone-300 rounded text-sm bg-[#FBF9F5]/40 focus:outline-none focus:border-[#1A1F2C]"
+              className="w-full p-3 border border-[#E2DDD5] dark:border-stone-700 rounded bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#D4A359]"
             />
           </div>
 
-          {/* パスワード */}
           <div>
-            <label className="block text-xs text-stone-600 mb-1">
-              パスワード（6文字以上） <span className="text-rose-500">*</span>
+            <label className="block text-xs text-gray-700 dark:text-stone-300 mb-1">
+              パスワード
             </label>
             <input
               type="password"
               required
+              minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full p-2.5 border border-stone-300 rounded text-sm bg-[#FBF9F5]/40 focus:outline-none focus:border-[#1A1F2C]"
+              className="w-full p-3 border border-[#E2DDD5] dark:border-stone-700 rounded bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#D4A359]"
             />
           </div>
 
-          {/* パスワード（確認用） */}
-          <div>
-            <label className="block text-xs text-stone-600 mb-1">
-              パスワード（確認用） <span className="text-rose-500">*</span>
-            </label>
+          <div className="p-3 bg-[#F4F0E8] dark:bg-[#1A1F2C] rounded border border-[#E2DDD5] dark:border-stone-800 flex items-start gap-3">
             <input
-              type="password"
+              type="checkbox"
+              id="ethics-agree"
+              checked={agreedToEthics}
+              onChange={(e) => setAgreedToEthics(e.target.checked)}
+              className="mt-0.5 accent-[#1A1F2C] dark:accent-[#D4A359] h-4 w-4"
               required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full p-2.5 border border-stone-300 rounded text-sm bg-[#FBF9F5]/40 focus:outline-none focus:border-[#1A1F2C]"
             />
-          </div>
-
-          {/* 倫理ガイドラインおよび利用規約同意 */}
-          <div className="p-3.5 bg-amber-50/50 border border-amber-200/60 rounded text-xs font-serif space-y-2">
-            <p className="text-amber-900 font-medium">【場の約束事】</p>
-            <p className="text-stone-600 leading-relaxed text-[11px]">
-              Poem pratyaya は評価や競い合いを離れ、言葉と静かに対話する聖域です。誹謗中傷や攻撃的言説を排し、自他の良心を尊びます。
-            </p>
-            <label className="flex items-start gap-2 pt-1 cursor-pointer font-sans text-xs">
-              <input
-                type="checkbox"
-                checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-0.5 rounded border-stone-300 text-[#1A1F2C] focus:ring-[#D4A359]"
-              />
-              <span className="text-stone-700">
-                <Link href="/terms" target="_blank" className="text-[#D4A359] underline hover:text-stone-800">
-                  利用規約・倫理指針
-                </Link>
-                に同意します。
-              </span>
+            <label htmlFor="ethics-agree" className="text-xs text-gray-700 dark:text-stone-300 leading-snug cursor-pointer select-none">
+              <span className="font-semibold text-[#D4A359]">【倫理・利用規約】</span>
+              勝敗や優劣を離れ、他者の尊厳と良心を尊重する対話空間の理念に同意します。
             </label>
           </div>
 
-          {/* 送信ボタン */}
           <button
             type="submit"
-            disabled={isSubmitting || !agreedToTerms}
-            className="w-full py-3 bg-[#1A1F2C] text-[#FBF9F5] text-xs tracking-wider rounded font-serif hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-sans"
+            disabled={loading || !agreedToEthics}
+            className="w-full py-3 bg-[#1A1F2C] dark:bg-[#D4A359] hover:bg-[#2C3242] dark:hover:opacity-90 disabled:bg-gray-300 dark:disabled:bg-stone-800 text-[#FBF9F5] dark:text-[#1A1F2C] font-medium text-xs tracking-wider rounded transition-colors"
           >
-            {isSubmitting ? 'アカウント作成中...' : 'アカウントを作成して参加する'}
+            {loading ? '送信中...' : '登録する'}
           </button>
         </form>
 
-        {/* 既存ユーザー向けログインへの導線 */}
-        <div className="text-center pt-4 border-t border-stone-100 text-xs font-sans text-stone-500">
-          すでにアカウントをお持ちですか？{' '}
-          <Link href="/auth/login" className="text-[#1A1F2C] font-medium underline hover:text-[#D4A359]">
-            ログイン画面へ
+        <div className="text-center pt-4 border-t border-[#E2DDD5] dark:border-stone-800 text-xs font-sans">
+          <span className="text-gray-500 dark:text-stone-400">すでにアカウントをお持ちの方は </span>
+          <Link href="/auth/login" className="text-[#D4A359] hover:underline font-medium">
+            ログイン
           </Link>
         </div>
-
       </div>
     </div>
   )
