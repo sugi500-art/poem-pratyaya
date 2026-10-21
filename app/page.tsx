@@ -1,4 +1,3 @@
-
 'use client'
 
 import React, { useEffect, useState } from 'react'
@@ -27,7 +26,7 @@ interface Poem {
 
 export default function HomePage() {
   const [hasMounted, setHasMounted] = useState(false)
-  const [featuredPoem, setFeaturedPoem] = useState<Poem | null>(null)
+  const [featuredPoems, setFeaturedPoems] = useState<Poem[]>([])
   const [recentPoems, setRecentPoems] = useState<Poem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -46,7 +45,7 @@ export default function HomePage() {
         setError(null)
         const supabase = createClient()
 
-        // 1. 月刊キュレーション特選作品（is_featured = true）の最新1件を取得
+        // 1. 月刊キュレーション特選作品（is_featured = true）の最新数件（最大2〜3件）を取得
         const { data: featuredData, error: featuredError } = await supabase
           .from('poems')
           .select(`
@@ -65,7 +64,7 @@ export default function HomePage() {
           .eq('status', 'published')
           .eq('is_featured', true)
           .order('curated_at', { ascending: false })
-          .limit(1)
+          .limit(3)
 
         if (featuredError) {
           console.warn('特選詩篇取得の注意:', featuredError.message)
@@ -95,10 +94,10 @@ export default function HomePage() {
           if (isMounted) setError('作品の読み込みに失敗しました。時間をおいて再読み込みしてください。')
         } else if (isMounted) {
           if (featuredData && featuredData.length > 0) {
-            setFeaturedPoem(featuredData[0] as unknown as Poem)
+            setFeaturedPoems(featuredData as unknown as Poem[])
           } else if (recentData && recentData.length > 0) {
-            // 特選作品が指定されていない場合は新着先頭をフォールバック表示
-            setFeaturedPoem(recentData[0] as unknown as Poem)
+            // 特選作品が指定されていない場合は新着先頭1件をフォールバック表示
+            setFeaturedPoems([recentData[0] as unknown as Poem])
           }
           if (recentData) {
             setRecentPoems(recentData as unknown as Poem[])
@@ -132,7 +131,7 @@ export default function HomePage() {
       <div className="max-w-5xl mx-auto space-y-16">
 
         {/* ヒーローエリア：月刊キュレーション（順位付けを行わない特選作品 & 鑑賞文） */}
-        <section className="bg-white/90 dark:bg-[#242B3B] p-8 sm:p-12 rounded-lg border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-6 relative overflow-hidden backdrop-blur-sm">
+        <section className="bg-white/90 dark:bg-[#242B3B] p-8 sm:p-12 rounded-xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-6 relative overflow-hidden backdrop-blur-sm">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-stone-100 dark:border-stone-800 pb-4 gap-2">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#D4A359] animate-pulse" />
@@ -141,43 +140,58 @@ export default function HomePage() {
               </p>
             </div>
             <span className="text-[11px] font-sans text-stone-500 dark:text-stone-400">
-              順位付けを行わない特選詩篇
+              順位付けを行わない月刊特選詩篇
             </span>
           </div>
 
-          {featuredPoem ? (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h1 className="text-2xl sm:text-3xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
-                  『{featuredPoem.title}』
-                </h1>
-                <p className="text-xs text-stone-600 dark:text-stone-400 font-sans">
-                  詩人：{featuredPoem.profiles?.display_name || '無名の表現者'}
-                </p>
-              </div>
+          {featuredPoems.length > 0 ? (
+            <div className={`grid grid-cols-1 ${featuredPoems.length > 1 ? 'md:grid-cols-2 gap-8' : 'gap-6'}`}>
+              {featuredPoems.map((poem) => (
+                <div key={poem.id} className="space-y-5 flex flex-col justify-between bg-[#FDFBF7]/80 dark:bg-[#1A1F2C]/60 p-6 rounded-lg border border-[#E5E0D8] dark:border-stone-800 shadow-sm relative">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-stone-200/60 dark:border-stone-800 pb-2">
+                      <span className="px-2.5 py-0.5 bg-[#D4A359]/15 text-[#8C621C] dark:text-[#E5B869] text-xs font-sans rounded font-medium">
+                        {poem.curator_name || '選者特選'}
+                      </span>
+                      {poem.curated_at && (
+                        <span className="text-[10px] font-sans text-stone-400">
+                          {new Date(poem.curated_at).toLocaleDateString('ja-JP')}
+                        </span>
+                      )}
+                    </div>
 
-              {/* 抜粋本文 */}
-              <div className="p-6 bg-[#FBF9F5]/80 dark:bg-[#1A1F2C]/80 border-l-2 border-[#D4A359] rounded-r text-sm sm:text-base leading-loose text-stone-800 dark:text-stone-200 font-serif whitespace-pre-wrap max-h-48 overflow-hidden text-ellipsis shadow-inner">
-                {featuredPoem.content}
-              </div>
+                    <div className="space-y-1">
+                      <h1 className="text-xl sm:text-2xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
+                        『{poem.title}』
+                      </h1>
+                      <p className="text-xs text-stone-600 dark:text-stone-400 font-sans">
+                        詩人：{poem.profiles?.display_name || '無名の表現者'}
+                      </p>
+                    </div>
 
-              {/* 選者による鑑賞文（選評） */}
-              <div className="pt-4 text-xs font-sans text-stone-600 dark:text-stone-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-t border-stone-100 dark:border-stone-800">
-                <div className="space-y-1 font-serif text-stone-700 dark:text-stone-300 leading-relaxed max-w-2xl">
-                  <span className="text-[#D4A359] font-medium font-sans mr-2">
-                    【{featuredPoem.curator_name || '選者鑑賞'}】
-                  </span>
-                  <p className="inline italic">
-                    {featuredPoem.curation_comment || '「言葉の響きが、私たちの内に潜む傷と静かに対話し照らし出す...」'}
-                  </p>
+                    {/* 抜粋本文 */}
+                    <div className="p-4 bg-white/80 dark:bg-[#242B3B]/80 border-l-2 border-[#D4A359] rounded-r text-sm leading-relaxed text-stone-800 dark:text-stone-200 font-serif whitespace-pre-wrap max-h-36 overflow-hidden text-ellipsis shadow-inner">
+                      {poem.content}
+                    </div>
+
+                    {/* 選者鑑賞コメント */}
+                    {poem.curation_comment && (
+                      <div className="p-4 bg-[#D4A359]/10 rounded border border-[#D4A359]/20 text-xs font-serif text-stone-700 dark:text-stone-300 leading-relaxed italic">
+                        “ {poem.curation_comment} ”
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <Link
+                      href={`/poems/${poem.id}`}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs font-sans rounded hover:bg-stone-800 dark:hover:opacity-90 transition tracking-wider shadow-sm font-medium"
+                    >
+                      この一篇を鑑賞する →
+                    </Link>
+                  </div>
                 </div>
-                <Link
-                  href={`/poems/${featuredPoem.id}`}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs font-sans rounded hover:bg-stone-800 dark:hover:opacity-90 transition tracking-wider shrink-0 shadow-sm font-medium"
-                >
-                  この一篇を深く鑑賞する →
-                </Link>
-              </div>
+              ))}
             </div>
           ) : (
             /* データ準備中・初期案内カード */
@@ -296,3 +310,4 @@ export default function HomePage() {
     </div>
   )
 }
+
