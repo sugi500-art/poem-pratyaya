@@ -1,7 +1,6 @@
+'use client'
 
-  'use client'
-
-import React, { useState, useEffect } from 'react'  // ← useEffect を追加
+import React, { useState, useEffect } from 'react'
 
 // --- TypeScript Interfaces ---
 export interface ForumCategory {
@@ -72,7 +71,7 @@ const INITIAL_THREADS: ForumThread[] = [
   {
     id: 'thread-1',
     category_id: 'cat-2',
-    author_id: 'current-user', // 本人テスト用
+    author_id: 'current-user',
     author_name: '黒髪（杉原詠二）',
     author_role: 'admin',
     title: '「名色（nāma-rūpa）」の錬成としての詩作と、言葉による知の構造化について',
@@ -123,56 +122,15 @@ Poem pratyaya という場において、詩を縁（pratyaya）として持ち�
   },
 ]
 
-export default function ForumLabView() {
-
-
-// ==========================================
-// 1. TypeScript Interfaces（型定義）
-// ※ここは関数の外側なので、そのまま上の方に残します
-// ==========================================
-export interface ForumCategory { ... }
-export interface ForumPost { ... }
-export interface ForumThread { ... }
-
-
-// ==========================================
-// 2. メインの関数コンポーネント
-// ==========================================
-export default function LabPage() {  // ← ここから関数の「内側」です
-
-  // ★ 追加①：hasMounted をここに追加（関数の内側の先頭）
+export default function LabPage() {
   const [hasMounted, setHasMounted] = useState(false)
 
-  // （元からある State や処理はそのまま残します）
-  // const [threads, setThreads] = useState(...)
-
-  // ★ 追加②：useEffect をここに追加
-  useEffect(() => {
-    setHasMounted(true)
-  }, [])
-
-  // ★ 追加③：マウント前（ビルド時）の保護コードをここに追加
-  if (!hasMounted) {
-    return (
-      <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] py-20 text-center font-sans">
-        <p className="text-sm text-gray-500 dark:text-stone-400">Pratyaya Lab を読み込んでいます...</p>
-      </div>
-    )
-  }
-
-  // 元々あった画面表示コード（return）
-  return (
-    <div className="min-h-screen bg-[#FBF9F5] ...">
-      {/* ページの見た目（HTML/JSX） */}
-    </div>
-  )
-}
   const [categories] = useState<ForumCategory[]>(INITIAL_CATEGORIES)
   const [threads, setThreads] = useState<ForumThread[]>(INITIAL_THREADS)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
   const [activeThreadId, setActiveThreadId] = useState<string | null>('thread-1')
-  const [currentUserId] = useState<string>('current-user') // ログインユーザーID（仮定）
-  
+  const [currentUserId] = useState<string>('current-user')
+
   // 新規スレッドモーダル状態
   const [isNewThreadOpen, setIsNewThreadOpen] = useState(false)
   const [newThreadCategory, setNewThreadCategory] = useState('cat-1')
@@ -183,6 +141,18 @@ export default function LabPage() {  // ← ここから関数の「内側」で
   // 新規返信状態
   const [replyContent, setReplyContent] = useState('')
   const [replyEthicsAgreed, setReplyEthicsAgreed] = useState(false)
+
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
+
+  if (!hasMounted) {
+    return (
+      <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] py-20 text-center font-sans">
+        <p className="text-sm text-gray-500 dark:text-stone-400">Pratyaya Lab を読み込んでいます...</p>
+      </div>
+    )
+  }
 
   // カテゴリによるフィルタリング
   const filteredThreads = selectedCategoryId === 'all'
