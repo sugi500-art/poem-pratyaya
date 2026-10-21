@@ -1,29 +1,63 @@
 import type { Metadata } from 'next'
+import { cache } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
-// Next.js App Router 用の OGP・動的メタデータ設定ファイルガイド
-
-/* 
- * ============================================================
- * 1. 著者（参加者）プロフィール用: app/authors/[username]/page.tsx
- * ============================================================
- */
-
-export async function generateAuthorMetadata(username: string): Promise<Metadata> {
-  const targetKey = decodeURIComponent(username).replace(/^%40|^\@/, '')
-
-  // Supabase サーバー側直接取得用クライアント（OGPメタデータ生成用）
-  const supabase = createClient(
+// Supabase クライアント生成（Next.js の fetch キャッシュを有効化）
+function createCachedSupabaseClient() {
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+    {
+      global: {
+        fetch: (url, options) =>
+          fetch(url, {
+            ...options,
+            next: { revalidate: 60 }, // 60秒間キャッシュ（Next.js キャッシュとの統合）
+          }),
+      },
+    }
   )
+}
 
+// React cache を使ったプロファイルデータのキャッシュ付き取得関数
+const getProfileData = cache(async (targetKey: string) => {
+  const supabase = createCachedSupabaseClient()
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetKey)
+  
   const query = isUuid
     ? supabase.from('profiles').select('*').eq('id', targetKey)
     : supabase.from('profiles').select('*').eq('username', targetKey)
 
   const { data: profile } = await query.maybeSingle()
+  return profile
+})
+
+// React cache を使った詩篇データのキャッシュ付き取得関数
+const getPoemData = cache(async (poemId: string) => {
+  const supabase = createCachedSupabaseClient()
+
+  const { data: poem } = await supabase
+    .from('poems')
+    .select(`
+      id,
+      title,
+      content,
+      profiles:author_id ( display_name, username )
+    `)
+    .eq('id', poemId)
+    .maybeSingle()
+
+  return poem
+})
+
+/* 
+ * ============================================================
+ * 1. 著者（参加者）プロフィール用 OGP メタデータ生成
+ * ============================================================
+ */
+export async function generateAuthorMetadata(username: string): Promise<Metadata> {
+  const targetKey = decodeURIComponent(username).replace(/^%40|^\@/, '')
+  const profile = await getProfileData(targetKey)
 
   const displayName = profile?.display_name || profile?.username || targetKey || '詩人'
   const bioText = profile?.bio
@@ -61,26 +95,11 @@ export async function generateAuthorMetadata(username: string): Promise<Metadata
 
 /* 
  * ============================================================
- * 2. 詩篇詳細ページ用: app/poems/[id]/page.tsx
+ * 2. 詩篇詳細ページ用 OGP メタデータ生成
  * ============================================================
  */
-
 export async function generatePoemMetadata(poemId: string): Promise<Metadata> {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  )
-
-  const { data: poem } = await supabase
-    .from('poems')
-    .select(`
-      id,
-      title,
-      content,
-      profiles:author_id ( display_name, username )
-    `)
-    .eq('id', poemId)
-    .maybeSingle()
+  const poem = await getPoemData(poemId)
 
   const poemTitle = poem?.title ? `『${poem.title}』` : '詩篇'
   const authorName = (poem as any)?.profiles?.display_name || (poem as any)?.profiles?.username || '無名の表現者'
