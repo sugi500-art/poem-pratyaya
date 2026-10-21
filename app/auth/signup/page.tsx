@@ -1,6 +1,27 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+
+export default function SignupPage() {
+  const [hasMounted, setHasMounted] = useState(false)
+
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
+
+  // ビルド時の静的Prerenderエラーを回避
+  if (!hasMounted) {
+    return (
+      <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] py-20 text-center font-sans">
+        <p className="text-sm text-gray-500 dark:text-stone-400">読み込んでいます...</p>
+      </div>
+    )
+  }
+
+  return (
+    // 既存の Signup ページの画面表示コード（JSX）
+  )
+}
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
