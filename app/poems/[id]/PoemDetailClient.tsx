@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import CurationCard from '@/components/CurationCard';
 
 interface Profile {
   id: string;
@@ -22,6 +23,10 @@ interface Poem {
   status: 'draft' | 'published';
   published_at: string | null;
   created_at: string;
+  is_featured?: boolean;
+  curation_comment?: string | null;
+  curator_name?: string | null;
+  curated_at?: string | null;
   author?: Profile;
 }
 
@@ -338,7 +343,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link
             href="/poems"
-            className="text-xs tracking-widest text-[#5A6275] dark:text-stone-400 hover:text-[#1A1F2C] dark:hover:text-stone-100 transition-colors flex items-center space-x-2"
+            className="text-xs tracking-widest text-[#5A6275] dark:text-stone-400 hover:text-[#1A1F2C] dark:hover:text-stone-100 transition-colors flex items-center space-x-2 font-sans"
           >
             <span>←</span>
             <span>詩篇目録へ</span>
@@ -349,7 +354,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
           </Link>
 
           {/* 表示モード切り替えボタン */}
-          <div className="flex items-center space-x-1 bg-[#EBE6DD] dark:bg-stone-800 p-1 rounded text-xs tracking-wider">
+          <div className="flex items-center space-x-1 bg-[#EBE6DD] dark:bg-stone-800 p-1 rounded text-xs tracking-wider font-sans">
             <button
               onClick={() => setViewWritingMode('vertical')}
               className={`px-3 py-1 rounded transition-all ${
@@ -374,7 +379,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-12 space-y-16">
+      <main className="max-w-5xl mx-auto px-4 py-12 space-y-12">
         {/* 作品表示エリア */}
         <article className="bg-white dark:bg-[#242B3B] border border-[#E5E0D8] dark:border-stone-800 shadow-sm rounded-lg p-8 md:p-16 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#D4A359]/10 to-transparent pointer-events-none rounded-bl-full" />
@@ -382,22 +387,22 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
           {/* 作品メタ情報 & 作者用操作ボタン */}
           <div className="mb-12 border-b border-[#E5E0D8] dark:border-stone-800 pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <span className="text-xs text-[#8C92A4] dark:text-stone-400 tracking-widest uppercase block mb-1">Poem</span>
+              <span className="text-xs text-[#8C92A4] dark:text-stone-400 tracking-widest uppercase block mb-1 font-sans">Poem</span>
               <h1 className="text-2xl md:text-3xl font-bold tracking-wider text-[#1A1F2C] dark:text-stone-100">{poem.title}</h1>
             </div>
 
             <div className="text-right space-y-2">
               <p className="text-sm font-medium text-[#1A1F2C] dark:text-stone-200">
-                <Link href={`/profile/${poem.author?.username || 'anonymous'}`} className="hover:text-[#D4A359] transition">
+                <Link href={`/authors/${poem.author?.id || 'anonymous'}`} className="hover:text-[#D4A359] transition">
                   {poem.author?.display_name || poem.author?.username || '匿名'}
                 </Link>
                 {poem.author?.role === 'advisor' && (
-                  <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-[#D4A359]/20 text-[#8C621C] dark:text-[#E5B869] rounded tracking-wider">
+                  <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-[#D4A359]/20 text-[#8C621C] dark:text-[#E5B869] rounded tracking-wider font-sans">
                     特別選者
                   </span>
                 )}
                 {poem.author?.role === 'admin' && (
-                  <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-[#1A1F2C] text-[#FBF9F5] dark:bg-[#D4A359] dark:text-[#1A1F2C] rounded tracking-wider">
+                  <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-[#1A1F2C] text-[#FBF9F5] dark:bg-[#D4A359] dark:text-[#1A1F2C] rounded tracking-wider font-sans">
                     主宰
                   </span>
                 )}
@@ -445,24 +450,34 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
           )}
         </article>
 
-        {/* 公式選評 */}
+        {/* 月刊選考・選者鑑賞文カード（poem.is_featured または poem.curation_comment がある場合に表示） */}
+        {(poem.is_featured || poem.curation_comment) && (
+          <CurationCard
+            curatorName={poem.curator_name}
+            curationComment={poem.curation_comment}
+            curatedAt={poem.curated_at}
+            isFeatured={poem.is_featured}
+          />
+        )}
+
+        {/* 公式選評（poem_reviews テーブル内の is_official_curation データが存在する場合の旧表示サポート） */}
         {officialReviews.length > 0 && (
           <section className="bg-[#FDFBF7] dark:bg-[#1E2533] border-l-4 border-[#D4A359] border-y border-r border-[#E5E0D8] dark:border-stone-800 rounded-r-lg p-6 md:p-8 space-y-6 shadow-sm">
             <div className="flex items-center space-x-3 border-b border-[#E5E0D8] dark:border-stone-800 pb-3">
               <span className="text-lg text-[#D4A359]">🕯️</span>
-              <h2 className="text-base font-medium tracking-widest text-[#1A1F2C] dark:text-stone-100">月刊公式選評・鑑賞文</h2>
+              <h2 className="text-base font-medium tracking-widest text-[#1A1F2C] dark:text-stone-100 font-serif">公式選評・選考鑑賞</h2>
             </div>
 
             <div className="space-y-6">
               {officialReviews.map((review) => (
                 <div key={review.id} className="space-y-3">
-                  <div className="flex items-center justify-between text-xs text-[#8C92A4] dark:text-stone-400">
+                  <div className="flex items-center justify-between text-xs text-[#8C92A4] dark:text-stone-400 font-sans">
                     <span className="font-medium text-[#1A1F2C] dark:text-stone-200">
                       {review.reviewer?.display_name || review.reviewer?.username} （選評）
                     </span>
                     <span>{new Date(review.created_at).toLocaleDateString('ja-JP')}</span>
                   </div>
-                  <p className="text-sm leading-relaxed text-[#2C3448] dark:text-stone-300 whitespace-pre-wrap bg-white/60 dark:bg-black/20 p-4 rounded border border-[#E5E0D8] dark:border-stone-800">
+                  <p className="text-sm leading-relaxed text-[#2C3448] dark:text-stone-300 whitespace-pre-wrap bg-white/60 dark:bg-black/20 p-4 rounded border border-[#E5E0D8] dark:border-stone-800 font-serif">
                     {review.content}
                   </p>
                 </div>
@@ -472,15 +487,15 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
         )}
 
         {/* 読者鑑賞文 ＆ 返信スレッドエリア */}
-        <section className="space-y-8">
+        <section className="space-y-8 pt-4">
           <div className="border-b border-[#E5E0D8] dark:border-stone-800 pb-4 flex items-center justify-between">
-            <h2 className="text-lg font-medium tracking-widest text-[#1A1F2C] dark:text-stone-100 flex items-center space-x-2">
+            <h2 className="text-lg font-medium tracking-widest text-[#1A1F2C] dark:text-stone-100 flex items-center space-x-2 font-serif">
               <span>読者からの鑑賞文・言葉の応答</span>
-              <span className="text-xs bg-[#EBE6DD] dark:bg-stone-800 text-[#5A6275] dark:text-stone-300 px-2 py-0.5 rounded-full">
+              <span className="text-xs bg-[#EBE6DD] dark:bg-stone-800 text-[#5A6275] dark:text-stone-300 px-2 py-0.5 rounded-full font-sans">
                 {generalReviews.length}
               </span>
             </h2>
-            <span className="text-xs text-[#8C92A4] dark:text-stone-400 tracking-wider">順位付けなき深層対話</span>
+            <span className="text-xs text-[#8C92A4] dark:text-stone-400 tracking-wider font-sans">順位付けなき深層対話</span>
           </div>
 
           {/* 鑑賞文・スレッド一覧 */}
@@ -502,10 +517,10 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                     className="bg-white dark:bg-[#242B3B] border border-[#E5E0D8] dark:border-stone-800 rounded-lg p-6 space-y-4 shadow-sm hover:border-[#D4A359]/50 transition-colors"
                   >
                     {/* 親鑑賞文 ヘッダー */}
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-xs font-sans">
                       <div className="flex items-center space-x-2">
                         <Link
-                          href={`/profile/${review.reviewer?.username || 'anonymous'}`}
+                          href={`/authors/${review.reviewer?.id || 'anonymous'}`}
                           className="font-medium text-[#1A1F2C] dark:text-stone-100 hover:text-[#D4A359] transition"
                         >
                           {review.reviewer?.display_name || review.reviewer?.username || '静かな読者'}
@@ -522,7 +537,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-3 text-[#8C92A4] dark:text-stone-400 font-sans">
+                      <div className="flex items-center gap-3 text-[#8C92A4] dark:text-stone-400">
                         <span>
                           {new Date(review.created_at).toLocaleString('ja-JP', {
                             year: 'numeric',
@@ -634,7 +649,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                               <div className="flex items-center justify-between font-sans">
                                 <div className="flex items-center space-x-2">
                                   <Link
-                                    href={`/profile/${reply.reviewer?.username || 'anonymous'}`}
+                                    href={`/authors/${reply.reviewer?.id || 'anonymous'}`}
                                     className="font-medium text-[#1A1F2C] dark:text-stone-100 hover:text-[#D4A359] transition"
                                   >
                                     {reply.reviewer?.display_name || reply.reviewer?.username || '読者'}
@@ -687,7 +702,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
 
           {/* 新規トップレベル鑑賞文投稿フォーム */}
           <div className="bg-white dark:bg-[#242B3B] border border-[#E5E0D8] dark:border-stone-800 rounded-lg p-6 md:p-8 space-y-6 shadow-sm">
-            <h3 className="text-sm font-medium tracking-widest text-[#1A1F2C] dark:text-stone-100 border-b border-[#E5E0D8] dark:border-stone-800 pb-3">
+            <h3 className="text-sm font-medium tracking-widest text-[#1A1F2C] dark:text-stone-100 border-b border-[#E5E0D8] dark:border-stone-800 pb-3 font-serif">
               新しい鑑賞文・考察を寄せる
             </h3>
 
@@ -705,7 +720,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
 
             <form onSubmit={handleReviewSubmit} className="space-y-6">
               <div>
-                <label className="block text-xs text-[#5A6275] dark:text-stone-400 tracking-wider mb-2">
+                <label className="block text-xs text-[#5A6275] dark:text-stone-400 tracking-wider mb-2 font-sans">
                   言葉の響きや像（イメージ）についての鑑賞・考察
                 </label>
                 <textarea
@@ -727,7 +742,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                     onChange={(e) => setReviewEthicsAgreed(e.target.checked)}
                     className="mt-0.5 h-4 w-4 rounded border-[#E5E0D8] text-[#D4A359] focus:ring-[#D4A359]"
                   />
-                  <span className="text-xs text-[#2C3448] dark:text-stone-300 leading-relaxed select-none">
+                  <span className="text-xs text-[#2C3448] dark:text-stone-300 leading-relaxed select-none font-sans">
                     ※ この言葉は、作品と作者への敬意を払い、他者の尊厳を深め、良心を照らすものですか？（誹謗中傷や攻撃的な言説を排除します）
                   </span>
                 </label>
@@ -737,7 +752,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                 <button
                   type="submit"
                   disabled={isSubmittingReview || !newReviewContent.trim() || !reviewEthicsAgreed}
-                  className="px-6 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs tracking-widest rounded hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm font-medium"
+                  className="px-6 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs tracking-widest rounded hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm font-medium font-sans"
                 >
                   {isSubmittingReview ? '送信中...' : '鑑賞文を投稿する'}
                 </button>
@@ -746,11 +761,6 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
           </div>
         </section>
       </main>
-
-      {/* 静かなフッター */}
-      <footer className="border-t border-[#E5E0D8] dark:border-stone-800 py-8 text-center text-xs text-[#8C92A4] dark:text-stone-500 tracking-widest mt-20">
-        <p>Poem pratyaya — 真理と愛、理解と共感の言葉の空間</p>
-      </footer>
     </div>
   );
 }
