@@ -1,3 +1,4 @@
+
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -29,10 +30,9 @@ export default function CurationManagePage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [userRole, setUserRole] = useState<'admin' | 'advisor' | 'user' | null>(null)
   
-  // 年月指定 (デフォルトは現在の年月)
-  const today = new Date()
-  const [selectedYear, setSelectedYear] = useState(today.getFullYear())
-  const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1)
+  // 年月指定 (クライアントマウント時に現在の年月で初期化)
+  const [selectedYear, setSelectedYear] = useState<number>(2026)
+  const [selectedMonth, setSelectedMonth] = useState<number>(10)
 
   // フォーム状態
   const [publishedPoems, setPublishedPoems] = useState<PoemOption[]>([])
@@ -46,7 +46,11 @@ export default function CurationManagePage() {
   const supabase = createClient()
   const router = useRouter()
 
+  // クライアント側でのマウント時に現在年月を設定（Prerender時の Date 参照エラーを防止）
   useEffect(() => {
+    const today = new Date()
+    setSelectedYear(today.getFullYear())
+    setSelectedMonth(today.getMonth() + 1)
     setHasMounted(true)
   }, [])
 
