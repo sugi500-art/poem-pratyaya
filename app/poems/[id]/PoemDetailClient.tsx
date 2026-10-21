@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -49,6 +50,9 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
 
   // 表示モード（初期値は作品の設定、後から読者が切り替え可能）
   const [viewWritingMode, setViewWritingMode] = useState<'vertical' | 'horizontal'>('vertical');
+
+  // URL コピー状態
+  const [copied, setCopied] = useState(false);
 
   // 新規鑑賞文入力状態（親コメント用）
   const [newReviewContent, setNewReviewContent] = useState('');
@@ -140,6 +144,20 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
       setLoading(false);
     }
   }
+
+  // URLコピー処理
+  const handleCopyUrl = () => {
+    if (typeof window !== 'undefined') {
+      navigator.clipboard.writeText(window.location.href)
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2500);
+        })
+        .catch((err) => {
+          console.error('URLコピーエラー:', err);
+        });
+    }
+  };
 
   // 作品削除ハンドラ
   async function handleDeletePoem() {
@@ -448,9 +466,36 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
               </div>
             </div>
           )}
+
+          {/* 共有・URLコピーバー */}
+          <div className="mt-10 pt-6 border-t border-[#E5E0D8] dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-4 font-sans text-xs">
+            <div className="flex items-center gap-2 text-[#8C92A4] dark:text-stone-400">
+              <span>🕯️ 言葉を手渡す・共有する</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCopyUrl}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#FBF9F5] dark:bg-[#1A1F2C] border border-[#E5E0D8] dark:border-stone-700 text-[#1A1F2C] dark:text-stone-200 hover:bg-[#EBE6DD] dark:hover:bg-stone-800 rounded transition font-medium shadow-sm active:scale-95"
+                title="この作品の個別URLをクリップボードにコピーします"
+              >
+                {copied ? (
+                  <>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">✓</span>
+                    <span className="text-emerald-700 dark:text-emerald-300 font-medium">URLをコピーしました 🕯️</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🔗</span>
+                    <span>この作品のURLをコピー</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </article>
 
-        {/* 月刊選考・選者鑑賞文カード（poem.is_featured または poem.curation_comment がある場合に表示） */}
+        {/* 月刊選考・選者鑑賞文カード */}
         {(poem.is_featured || poem.curation_comment) && (
           <CurationCard
             curatorName={poem.curator_name}
@@ -460,7 +505,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
           />
         )}
 
-        {/* 公式選評（poem_reviews テーブル内の is_official_curation データが存在する場合の旧表示サポート） */}
+        {/* 公式選評 */}
         {officialReviews.length > 0 && (
           <section className="bg-[#FDFBF7] dark:bg-[#1E2533] border-l-4 border-[#D4A359] border-y border-r border-[#E5E0D8] dark:border-stone-800 rounded-r-lg p-6 md:p-8 space-y-6 shadow-sm">
             <div className="flex items-center space-x-3 border-b border-[#E5E0D8] dark:border-stone-800 pb-3">
