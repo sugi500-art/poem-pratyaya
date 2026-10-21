@@ -56,6 +56,9 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // URL コピー状態
+  const [copiedUrl, setCopiedUrl] = useState(false)
+
   // タブ ('published' | 'drafts' | 'reviews')
   const [activeTab, setActiveTab] = useState<'published' | 'drafts' | 'reviews'>('published')
 
@@ -151,6 +154,18 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
       setError(err.message || 'データ読込中にエラーが発生しました。')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // プロフィールURLコピー処理
+  const handleCopyProfileUrl = async () => {
+    try {
+      const url = window.location.href
+      await navigator.clipboard.writeText(url)
+      setCopiedUrl(true)
+      setTimeout(() => setCopiedUrl(false), 3000)
+    } catch (err) {
+      console.error('URLコピー失敗:', err)
     }
   }
 
@@ -294,24 +309,41 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
               </div>
             </div>
 
-            {/* 本人認証時：編集・退会ボタン */}
-            {isOwner && !isEditing && (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-sans rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition"
-                >
-                  プロフィールを編集
-                </button>
-                <button
-                  onClick={() => setShowDeleteModal(true)}
-                  className="px-3 py-2 text-rose-600 dark:text-rose-400 text-xs font-sans hover:underline transition"
-                  title="退会手続き（アカウント削除）"
-                >
-                  退会設定
-                </button>
-              </div>
-            )}
+            {/* 操作ボタンエリア（名刺代わりのURLコピー ＆ 本人用設定） */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {/* URLコピーボタン（誰でも使える共有ボタン） */}
+              <button
+                onClick={handleCopyProfileUrl}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 border rounded text-xs font-sans transition shadow-sm font-medium ${
+                  copiedUrl
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200'
+                    : 'bg-[#F4F0E8] dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-[#D4A359]'
+                }`}
+                title="この作品一覧プロフィールのURLをコピー（SNSや名刺代わりに共有できます）"
+              >
+                <span>{copiedUrl ? '✓' : '🔗'}</span>
+                <span>{copiedUrl ? 'URLをコピーしました 🕯️' : '作品目録（プロフィール）URLをコピー'}</span>
+              </button>
+
+              {/* 本人認証時：編集・退会ボタン */}
+              {isOwner && !isEditing && (
+                <>
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="px-3.5 py-2 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-sans rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition"
+                  >
+                    編集
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="px-2.5 py-2 text-rose-600 dark:text-rose-400 text-xs font-sans hover:underline transition"
+                    title="退会手続き（アカウント削除）"
+                  >
+                    退会
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* 自己紹介文（または編集フォーム） */}
