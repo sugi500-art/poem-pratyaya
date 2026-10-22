@@ -9,10 +9,40 @@ function HeaderInner() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const pathname = usePathname()
   const router = useRouter()
 
-  // 1. 初期ロードおよび Supabase リアルタイム認証状態監視 (onAuthStateChange)
+  // 1. ダークモード（テーマ）の初期状態確認と適用
+  useEffect(() => {
+    const isDark =
+      document.documentElement.classList.contains('dark') ||
+      localStorage.theme === 'dark' ||
+      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+    if (isDark) {
+      document.documentElement.classList.add('dark')
+      setTheme('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      setTheme('light')
+    }
+  }, [])
+
+  // テーマ切り替えハンドラ
+  const toggleTheme = () => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+      setTheme('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+      setTheme('light')
+    }
+  }
+
+  // 2. 初期ロードおよび Supabase リアルタイム認証状態監視 (onAuthStateChange)
   useEffect(() => {
     const supabase = createClient()
 
@@ -50,7 +80,7 @@ function HeaderInner() {
     }
   }, [])
 
-  // 2. ページ遷移時にモバイルメニューを閉じ、最新のユーザー情報を再チェック
+  // 3. ページ遷移時にモバイルメニューを閉じ、最新のユーザー情報を再チェック
   useEffect(() => {
     setMobileMenuOpen(false)
     const supabase = createClient()
@@ -97,6 +127,16 @@ function HeaderInner() {
           <Link href="/terms" className="text-stone-600 dark:text-stone-300 hover:text-[#D4A359] transition">
             マニフェスト・規約
           </Link>
+
+          {/* ダークモード切り替えボタン */}
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 text-stone-600 dark:text-stone-300 hover:text-[#D4A359] dark:hover:text-[#D4A359] transition rounded border border-stone-200 dark:border-stone-700 bg-stone-100/50 dark:bg-stone-800/50"
+            title={theme === 'dark' ? '明るい画面（ライトモード）に切り替え' : '静寂な画面（ダークモード）に切り替え'}
+            aria-label="テーマ切替"
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
 
           {user ? (
             <div className="flex items-center space-x-4 pl-4 border-l border-stone-200 dark:border-stone-700">
@@ -147,17 +187,26 @@ function HeaderInner() {
         </nav>
 
         {/* スマホ用トグルボタン (md未満で表示) */}
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 text-stone-700 dark:text-stone-200 focus:outline-none"
-          aria-label="メニューを開閉"
-        >
-          {mobileMenuOpen ? (
-            <span className="text-xl">✕</span>
-          ) : (
-            <span className="text-xl">☰</span>
-          )}
-        </button>
+        <div className="flex items-center space-x-2 md:hidden">
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 text-stone-700 dark:text-stone-200 border border-stone-200 dark:border-stone-700 rounded text-sm"
+            title="テーマ切替"
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 text-stone-700 dark:text-stone-200 focus:outline-none"
+            aria-label="メニューを開閉"
+          >
+            {mobileMenuOpen ? (
+              <span className="text-xl">✕</span>
+            ) : (
+              <span className="text-xl">☰</span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* スマホ用展開ドロワーメニュー */}
@@ -231,6 +280,14 @@ function HeaderInner() {
             <Link href="/terms" className="p-2 rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition">
               マニフェスト・利用規約・倫理指針
             </Link>
+
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition text-left flex items-center justify-between text-stone-600 dark:text-stone-300"
+            >
+              <span>画面テーマ切替</span>
+              <span>{theme === 'dark' ? '☀️ ライトモードへ' : '🌙 ダークモードへ'}</span>
+            </button>
           </div>
         </div>
       )}
@@ -256,6 +313,7 @@ export default function Header() {
     </Suspense>
   )
 }
+
 
 
 
