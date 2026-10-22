@@ -18,20 +18,35 @@ export default function MyPage() {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-          // 未ログイン時はログインページへリダイレクト
           router.push('/auth/login?next=/mypage');
           return;
         }
 
         // ログインユーザーの username を取得
-        const { data: profile, error: profileError } = await supabase
+        let { data: profile } = await supabase
           .from('profiles')
           .select('username')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (profileError || !profile?.username) {
-          throw new Error('プロフィール情報が見つかりませんでした。');
+        // プロファイルが存在しない場合は自動作成（フォールバック救済）
+        if (!profile || !profile.username) {
+          const fallbackUsername = `user_${user.id.slice(0, 8)}`;
+          const fallbackDisplayName = user.user_metadata?.display_name || user.user_metadata?.full_name || '詩人';
+
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: user.id,
+              username: fallbackUsername,
+              display_name: fallbackDisplayName,
+              role: 'user',
+            })
+            .select('username')
+            .single();
+
+          if (createError) throw createError;
+          profile = newProfile;
         }
 
         // 自身の作品目録（プロフィール）ページへリダイレクト
@@ -67,12 +82,13 @@ export default function MyPage() {
         </h1>
         <p className="text-xs text-stone-500 leading-relaxed">{error}</p>
         <Link
-          href="/auth/login"
+          href="/"
           className="inline-block px-6 py-2 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs rounded transition font-medium"
         >
-          ログイン画面へ移動する
+          トップページへ移動する
         </Link>
       </div>
     </div>
   );
 }
+

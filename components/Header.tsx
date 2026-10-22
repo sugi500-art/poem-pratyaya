@@ -11,55 +11,58 @@ function HeaderInner() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClient()
 
-  // ユーザー情報取得処理
-  async function fetchUser() {
-    try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
-      setUser(currentUser)
-
-      if (currentUser) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('display_name, username, role')
-          .eq('id', currentUser.id)
-          .single()
-        setProfile(data)
-      } else {
-        setProfile(null)
-      }
-    } catch (err) {
-      console.error('ヘッダー認証情報取得エラー:', err)
-    }
-  }
-
-  // 初期ロードおよび認証状態のリアルタイム監視 (onAuthStateChange)
+  // 1. 初期ロードおよび Supabase リアルタイム認証状態監視 (onAuthStateChange)
   useEffect(() => {
-    fetchUser()
+    const supabase = createClient()
 
-    // ログイン・ログアウトイベントをリアルタイムに検知してヘッダー表示を同期
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        fetchUser()
+    async function loadUserData(currentUser: any) {
+      if (currentUser) {
+        setUser(currentUser)
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('display_name, username, role')
+            .eq('id', currentUser.id)
+            .single()
+          setProfile(data)
+        } catch (err) {
+          console.error('プロフィール取得エラー:', err)
+        }
       } else {
         setUser(null)
         setProfile(null)
       }
+    }
+
+    // 初回ユーザー確認
+    supabase.auth.getUser().then(({ data: { user: currentUser } }) => {
+      loadUserData(currentUser)
+    })
+
+    // 認証状態の変更をリアルタイム検出 (ログイン/ログアウト)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      loadUserData(session?.user || null)
     })
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase])
+  }, [])
 
-  // ページ遷移（pathname 変更）時にも認証情報を再確認し、モバイルメニューを閉じる
+  // 2. ページ遷移時にモバイルメニューを閉じ、最新のユーザー情報を再チェック
   useEffect(() => {
-    fetchUser()
     setMobileMenuOpen(false)
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user: currentUser } }) => {
+      if (currentUser) {
+        setUser(currentUser)
+      }
+    })
   }, [pathname])
 
   const handleSignOut = async () => {
+    const supabase = createClient()
     await supabase.auth.signOut()
     setUser(null)
     setProfile(null)
@@ -68,7 +71,7 @@ function HeaderInner() {
     router.refresh()
   }
 
-  const displayName = profile?.display_name || profile?.username || '参加者'
+  const displayName = profile?.display_name || profile?.username || user?.email?.split('@')[0] || '参加者'
   const isCurator = profile?.role === 'admin' || profile?.role === 'advisor'
 
   return (
@@ -85,6 +88,9 @@ function HeaderInner() {
 
         {/* デスクトップ用メニュー (md以上で表示) */}
         <nav className="hidden md:flex items-center space-x-6 text-xs font-sans">
+          <Link href="/poems" className="text-stone-600 dark:text-stone-300 hover:text-[#D4A359] transition font-medium">
+            詩篇目録
+          </Link>
           <Link href="/lab" className="text-stone-600 dark:text-stone-300 hover:text-[#D4A359] transition">
             対話室（Lab）
           </Link>
@@ -214,6 +220,10 @@ function HeaderInner() {
               </Link>
             )}
 
+            <Link href="/poems" className="p-2 rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition font-medium">
+              詩篇目録（全公開作品）
+            </Link>
+
             <Link href="/lab" className="p-2 rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition">
               対話と深層批判の部屋（Pratyaya Lab）
             </Link>
@@ -246,5 +256,7 @@ export default function Header() {
     </Suspense>
   )
 }
+
+
 
 

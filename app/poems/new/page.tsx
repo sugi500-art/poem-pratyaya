@@ -1,322 +1,444 @@
-// 保存先: app/poems/new/page.tsx
+'use client';
 
-'use client'
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
-import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-
-export default function NewPoemPage() {
-  const router = useRouter()
-  const supabase = createClient()
+function NewPoemFormInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
+  const supabase = createClient();
 
   // フォーム状態
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [writingMode, setWritingMode] = useState<'vertical' | 'horizontal'>('vertical')
-  const [agreedToReminder, setAgreedToReminder] = useState(false)
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [writingMode, setWritingMode] = useState<'vertical' | 'horizontal'>('vertical');
+  const [agreedToReminder, setAgreedToReminder] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
+
+  // 編集モード状態
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [originalStatus, setOriginalStatus] = useState<'draft' | 'published' | null>(null);
 
   // 状態・エラーハンドリング
-  const [monthlyPublishedCount, setMonthlyPublishedCount] = useState<number>(0)
-  const [canPublish, setCanPublish] = useState<boolean>(true)
-  const [isLoadingCount, setIsLoadingCount] = useState<boolean>(true)
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
-  const [errorMsg, setErrorMsg] = useState<string>('')
+  const [monthlyPublishedCount, setMonthlyPublishedCount] = useState<number>(0);
+  const [canPublish, setCanPublish] = useState<boolean>(true);
+  const [isLoadingCount, setIsLoadingCount] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string>('');
 
-  const MONTHLY_LIMIT = 3 // 初期運用制限：月3作
+  const MONTHLY_LIMIT = 3; // 初期運用制限：月3作
 
-  // 当月の公開上限チェック
+  // 編集対象の既設作品データ読み込み
   useEffect(() => {
-    async function checkMonthlyLimit() {
-      setIsLoadingCount(true)
+    async function loadEditPoem() {
+      if (!editId) return;
+
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        setIsLoadingCount(true);
+        const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          setIsLoadingCount(false)
-          return
+          setErrorMsg('編集を行うにはログインが必要です。');
+          return;
         }
 
-        const startOfMonth = new Date()
-        startOfMonth.setDate(1)
-        startOfMonth.setHours(0, 0, 0, 0)
+        const { data, error } = await supabase
+          .from('poems')
+          .select('*')
+          .eq('id', editId)
+          .single();
+
+        if (error || !data) {
+          setErrorMsg('編集対象の作品が見つかりません。');
+          return;
+        }
+
+        if (data.author_id !== user.id) {
+          setErrorMsg('この作品を編集する権限がありません。');
+          return;
+        }
+
+        setTitle(data.title || '');
+        setContent(data.content || '');
+        setWritingMode(data.writing_mode || 'vertical');
+        setOriginalStatus(data.status || 'draft');
+        setIsEditMode(true);
+      } catch (err: any) {
+        console.error('編集用作品読込エラー:', err);
+      } finally {
+        setIsLoadingCount(false);
+      }
+    }
+
+    loadEditPoem();
+  }, [editId, supabase]);
+
+  // 月間投稿上限チェック（新規作成時、または下書きから新規公開時のみ適用）
+  useEffect(() => {
+    async function checkMonthlyLimit() {
+      setIsLoadingCount(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setErrorMsg('投稿を行うにはログインが必要です。');
+          setIsLoadingCount(false);
+          return;
+        }
+
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
 
         const { count, error } = await supabase
           .from('poems')
           .select('id', { count: 'exact', head: true })
           .eq('author_id', user.id)
           .eq('status', 'published')
-          .gte('published_at', startOfMonth.toISOString())
+          .gte('published_at', startOfMonth.toISOString());
 
-        if (!error && count !== null) {
-          setMonthlyPublishedCount(count)
-          setCanPublish(count < MONTHLY_LIMIT)
+        if (error) {
+          console.error('月間制限の確認エラー:', error);
+        } else {
+          const currentCount = count || 0;
+          setMonthlyPublishedCount(currentCount);
+          setCanPublish(currentCount < MONTHLY_LIMIT);
         }
       } catch (err) {
-        console.error('ユーザー認証確認エラー:', err)
+        console.error('ユーザー認証確認エラー:', err);
       } finally {
-        setIsLoadingCount(false)
+        setIsLoadingCount(false);
       }
     }
 
-    checkMonthlyLimit()
-  }, [supabase])
+    checkMonthlyLimit();
+  }, [supabase]);
 
-  // 投稿処理（下書き または 公開）
+  // 投稿・更新処理（下書き または 公開）
   const handleSubmit = async (targetStatus: 'draft' | 'published') => {
-    setErrorMsg('')
+    setErrorMsg('');
 
     if (!title.trim()) {
-      setErrorMsg('詩のタイトルを入力してください。')
-      return
+      setErrorMsg('詩のタイトルを入力してください。');
+      return;
     }
     if (!content.trim()) {
-      setErrorMsg('詩の本文を入力してください。')
-      return
+      setErrorMsg('詩の本文を入力してください。');
+      return;
     }
+
+    // 既に公開済みの作品を更新する場合は、月上限によるブロックを行わない
+    const isNewPublication = targetStatus === 'published' && originalStatus !== 'published';
 
     if (targetStatus === 'published') {
-      if (!canPublish) {
-        setErrorMsg(`今月の公開上限（月${MONTHLY_LIMIT}作）に達しています。下書き保存をご利用いただくか、来月以降に公開してください。`)
-        return
+      if (isNewPublication && !canPublish) {
+        setErrorMsg(`今月の公開上限（月${MONTHLY_LIMIT}作）に達しています。下書きとして保存するか、来月以降に公開してください。`);
+        return;
       }
       if (!agreedToReminder) {
-        setErrorMsg('送信前に「他者の尊厳を深め、良心を照らす言葉ですか？」の確認チェックを入れてください。')
-        return
+        setErrorMsg('送信前に「他者の尊厳を深め、良心を照らす言葉ですか？」の確認チェックを入れてください。');
+        return;
       }
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setErrorMsg('投稿を行うにはログインが必要です。ログイン後にお試しください。')
-        setIsSubmitting(false)
-        return
+        setErrorMsg('ログインセッションが切れています。再度ログインしてください。');
+        setIsSubmitting(false);
+        return;
       }
 
-      const publishedAt = targetStatus === 'published' ? new Date().toISOString() : null
+      const nowIso = new Date().toISOString();
 
-      const { data, error } = await supabase
-        .from('poems')
-        .insert({
-          author_id: user.id,
+      if (isEditMode && editId) {
+        // --- 更新（UPDATE）処理 ---
+        const updatePayload: any = {
           title: title.trim(),
           content: content.trim(),
           writing_mode: writingMode,
           status: targetStatus,
-          published_at: publishedAt,
-        })
-        .select()
-        .single()
+          updated_at: nowIso,
+        };
 
-      if (error) {
-        console.error('詩の投稿エラー:', error)
-        setErrorMsg(`投稿に失敗しました: ${error.message}`)
-        setIsSubmitting(false)
+        // 下書きから公開へ変更する場合のみ published_at を新設
+        if (originalStatus === 'draft' && targetStatus === 'published') {
+          updatePayload.published_at = nowIso;
+        }
+
+        const { error: updateError } = await supabase
+          .from('poems')
+          .update(updatePayload)
+          .eq('id', editId)
+          .eq('author_id', user.id);
+
+        if (updateError) throw updateError;
+
+        router.push(`/poems/${editId}`);
+        router.refresh();
       } else {
-        router.push(`/poems/${data.id}`)
-        router.refresh()
+        // --- 新規登録（INSERT）処理 ---
+        const publishedAt = targetStatus === 'published' ? nowIso : null;
+
+        const { data, error: insertError } = await supabase
+          .from('poems')
+          .insert({
+            author_id: user.id,
+            title: title.trim(),
+            content: content.trim(),
+            writing_mode: writingMode,
+            status: targetStatus,
+            published_at: publishedAt,
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        router.push(`/poems/${data.id}`);
+        router.refresh();
       }
     } catch (err: any) {
-      setErrorMsg(`予期せぬエラーが発生しました: ${err?.message || ''}`)
-      setIsSubmitting(false)
+      setErrorMsg(`予期せぬエラーが発生しました: ${err?.message || ''}`);
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#FBF9F5] text-[#1A1F2C] font-serif py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-5xl mx-auto">
         
-        {/* ナビゲーション戻る */}
-        <nav>
-          <Link href="/" className="text-xs font-sans text-stone-500 dark:text-stone-400 hover:text-[#D4A359] transition">
-            ← 言葉の聖域（トップページ）へ戻る
-          </Link>
-        </nav>
-
         {/* ページヘッダー */}
-        <header className="text-center border-b border-stone-200/80 dark:border-stone-800 pb-8 space-y-2">
-          <p className="text-xs font-sans tracking-widest text-[#D4A359] dark:text-[#E5B869] uppercase font-medium">
+        <header className="mb-10 text-center border-b border-stone-200/80 pb-8">
+          <p className="text-xs font-sans tracking-widest text-[#D4A359] uppercase mb-2">
             Poem Pratyaya — Sanctuary Room
           </p>
-          <h1 className="text-3xl sm:text-4xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
-            一篇の詩を紡ぐ
+          <h1 className="text-3xl sm:text-4xl font-normal tracking-wide text-[#1A1F2C] mb-3">
+            {isEditMode ? '詩篇の推敲・編集' : '一篇の詩を紡ぐ'}
           </h1>
-          <p className="text-xs text-stone-600 dark:text-stone-400 font-sans max-w-lg mx-auto leading-relaxed">
+          <p className="text-xs text-stone-600 font-sans max-w-lg mx-auto leading-relaxed">
             言葉を単なる情報から解き放ち、推敲を重ね、他者の尊厳と自己の良心を照らす「響き」へと開く静寂の部屋です。
           </p>
         </header>
 
         {/* 月間制限ステータスカード */}
-        <div className="p-4 bg-white/90 dark:bg-[#242B3B]/90 border border-stone-200/80 dark:border-stone-800 rounded-lg shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs font-sans">
-          <div>
-            <span className="font-medium text-stone-800 dark:text-stone-200">今月の公開ステータス：</span>
-            {isLoadingCount ? (
-              <span className="text-stone-400 ml-2">確認中...</span>
-            ) : (
-              <span className="ml-2 font-serif text-sm">
-                今月公開済み <strong className="text-[#D4A359] dark:text-[#E5B869] text-base">{monthlyPublishedCount}</strong> / {MONTHLY_LIMIT} 作
-              </span>
-            )}
+        {!isEditMode && (
+          <div className="mb-8 p-4 bg-white/80 border border-stone-200/80 rounded-lg shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs font-sans">
+            <div>
+              <span className="font-medium text-stone-800">今月の公開ステータス：</span>
+              {isLoadingCount ? (
+                <span className="text-stone-400 ml-2">確認中...</span>
+              ) : (
+                <span className="ml-2 font-serif text-sm">
+                  今月公開済み <strong className="text-[#D4A359] text-base">{monthlyPublishedCount}</strong> / {MONTHLY_LIMIT} 作
+                </span>
+              )}
+            </div>
+            <div className="text-stone-500 italic font-serif text-[11px]">
+              ※ 一作一作に心を込めるため、公開上限を「月{MONTHLY_LIMIT}作」に設定しています。下書き保存は無制限です。
+            </div>
           </div>
-          <div className="text-stone-500 dark:text-stone-400 italic font-serif text-[11px]">
-            ※ 一作一作に心を込めるため、公開上限を「月{MONTHLY_LIMIT}作」に設定しています。下書き保存は無制限です。
-          </div>
-        </div>
+        )}
 
         {/* 2カラムレイアウト（左：入力エディタ / 右：リアルタイムプレビュー） */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           
           {/* 左カラム：執筆エディタ */}
-          <div className="bg-white/90 dark:bg-[#242B3B]/90 p-6 sm:p-8 rounded-lg border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-6">
+          <div className="bg-white p-6 sm:p-8 rounded-lg border border-stone-200 shadow-sm space-y-6">
             
-            {/* 表示モード選択 */}
-            <div className="flex justify-between items-center pb-4 border-b border-stone-100 dark:border-stone-800">
-              <label className="block text-xs font-sans text-stone-600 dark:text-stone-400">組み方向の指定</label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setWritingMode('vertical')}
-                  className={`px-3 py-1.5 text-xs font-serif rounded transition ${
-                    writingMode === 'vertical'
-                      ? 'bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] font-medium'
-                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200'
-                  }`}
-                >
-                  縦書き（vertical）
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWritingMode('horizontal')}
-                  className={`px-3 py-1.5 text-xs font-serif rounded transition ${
-                    writingMode === 'horizontal'
-                      ? 'bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] font-medium'
-                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200'
-                  }`}
-                >
-                  横書き（horizontal）
-                </button>
+            {/* 表示モード選択 & プレビュー表示トグル */}
+            <div className="flex justify-between items-center pb-4 border-b border-stone-100">
+              <div className="space-y-1">
+                <label className="block text-xs font-sans text-stone-600">表示組み方向</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWritingMode('vertical')}
+                    className={`px-3 py-1.5 text-xs font-serif rounded transition ${
+                      writingMode === 'vertical'
+                        ? 'bg-[#1A1F2C] text-[#FBF9F5]'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                    }`}
+                  >
+                    縦書き（vertical）
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWritingMode('horizontal')}
+                    className={`px-3 py-1.5 text-xs font-serif rounded transition ${
+                      writingMode === 'horizontal'
+                        ? 'bg-[#1A1F2C] text-[#FBF9F5]'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                    }`}
+                  >
+                    横書き（horizontal）
+                  </button>
+                </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setShowPreview(!showPreview)}
+                className="text-xs text-stone-500 font-sans hover:text-stone-800 underline"
+              >
+                {showPreview ? 'プレビューを隠す' : 'プレビューを表示'}
+              </button>
             </div>
 
-            {/* 題名入力 */}
-            <div className="space-y-2">
-              <label htmlFor="title" className="block text-xs font-sans text-stone-700 dark:text-stone-300 font-medium">
-                詩の題名（タイトル）
+            {/* タイトル入力 */}
+            <div>
+              <label className="block text-xs font-sans text-stone-600 mb-2">
+                作品タイトル <span className="text-rose-600">*</span>
               </label>
               <input
-                id="title"
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="例：静寂の破片"
-                className="w-full px-4 py-2.5 bg-[#FBF9F5]/60 dark:bg-[#12161F]/60 border border-stone-300 dark:border-stone-700 rounded focus:outline-none focus:border-[#D4A359] text-sm font-serif"
+                placeholder="タイトルを入力..."
+                maxLength={100}
+                className="w-full p-3 border border-stone-300 rounded font-serif text-base focus:outline-none focus:border-[#1A1F2C] bg-[#FBF9F5]/50"
               />
             </div>
 
             {/* 本文入力 */}
-            <div className="space-y-2">
-              <label htmlFor="content" className="block text-xs font-sans text-stone-700 dark:text-stone-300 font-medium">
-                詩篇本文
-              </label>
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-xs font-sans text-stone-600">
+                  本文 <span className="text-rose-600">*</span>
+                </label>
+                <span className="text-[11px] font-sans text-stone-400">
+                  {content.length} 文字
+                </span>
+              </div>
               <textarea
-                id="content"
-                rows={12}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="言葉の響きを確かめながら、静かに紡いでください..."
-                className="w-full px-4 py-3 bg-[#FBF9F5]/60 dark:bg-[#12161F]/60 border border-stone-300 dark:border-stone-700 rounded focus:outline-none focus:border-[#D4A359] text-sm font-serif leading-relaxed"
+                placeholder="詩の本文を入力してください..."
+                rows={14}
+                className="w-full p-4 border border-stone-300 rounded font-serif text-sm leading-loose focus:outline-none focus:border-[#1A1F2C] bg-[#FBF9F5]/50 whitespace-pre-wrap"
               />
             </div>
 
-            {/* 内省のリマインダー（同意チェックボックス） */}
-            <div className="p-4 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 rounded space-y-2 text-xs font-sans">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={agreedToReminder}
-                  onChange={(e) => setAgreedToReminder(e.target.checked)}
-                  className="mt-0.5 rounded border-stone-300 text-[#D4A359] focus:ring-[#D4A359]"
-                />
-                <span className="text-stone-700 dark:text-stone-300 leading-relaxed font-serif">
-                  この作品は、他者の尊厳を深め、良心を照らし出す「響き」として投ぜられる言葉ですか？
-                </span>
-              </label>
-            </div>
-
-            {/* エラーメッセージ表示 */}
-            {errorMsg && (
-              <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-sans rounded">
-                {errorMsg}
-              </div>
-            )}
-
-            {/* アクションボタン */}
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => handleSubmit('draft')}
-                disabled={isSubmitting}
-                className="px-5 py-2.5 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-sans rounded hover:bg-stone-200 dark:hover:bg-stone-700 transition disabled:opacity-50"
-              >
-                下書き保存
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSubmit('published')}
-                disabled={isSubmitting || !canPublish}
-                className="px-6 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs font-sans rounded hover:bg-stone-800 dark:hover:bg-amber-500 transition shadow-sm disabled:opacity-50 font-medium"
-              >
-                {isSubmitting ? '送信中...' : '詩篇を静かに公開する'}
-              </button>
-            </div>
           </div>
 
-          {/* 右カラム：詩篇プレビュー画面 */}
-          <div className="bg-[#FBF9F5]/90 dark:bg-[#12161F]/90 p-6 sm:p-8 rounded-lg border border-stone-200 dark:border-stone-800 shadow-inner flex flex-col justify-between min-h-[500px]">
-            <div>
-              <p className="text-[11px] font-sans text-stone-400 dark:text-stone-500 mb-6 border-b border-stone-200/60 dark:border-stone-800 pb-2">
-                — Realtime Preview （実際の紙面表示）
-              </p>
+          {/* 右カラム：リアルタイムプレビュー */}
+          {showPreview && (
+            <div className="bg-[#FBF9F5] p-6 sm:p-8 rounded-lg border border-stone-200 shadow-inner flex flex-col min-h-[500px]">
+              <div className="text-xs font-sans text-stone-400 mb-4 border-b border-stone-200/60 pb-2 flex justify-between items-center">
+                <span>リアルタイム・プレビュー</span>
+                <span>{writingMode === 'vertical' ? '縦書き' : '横書き'}</span>
+              </div>
 
-              <div className="space-y-6">
-                <h2 className="text-2xl font-normal text-[#1A1F2C] dark:text-stone-100 tracking-wide">
-                  {title || '（無題）'}
-                </h2>
-
-                {/* 縦書き・横書きのスタイル切り替え表現 */}
-                {writingMode === 'vertical' ? (
-                  <div className="p-6 bg-white/80 dark:bg-[#242B3B]/80 rounded border border-stone-200/60 dark:border-stone-800 overflow-x-auto min-h-[300px] flex justify-end">
-                    <p
-                      className="text-sm font-serif leading-loose text-stone-800 dark:text-stone-200 whitespace-pre-wrap"
-                      style={{
-                        writingMode: 'vertical-rl',
-                        textOrientation: 'mixed',
-                      }}
+              <div className="flex-1 flex justify-center items-center overflow-auto p-4 bg-white/60 rounded border border-stone-200/40">
+                {title || content ? (
+                  writingMode === 'vertical' ? (
+                    /* 縦書きプレビュー表示 */
+                    <div 
+                      className="writing-vertical-rl text-stone-900 font-serif max-h-[550px] overflow-x-auto py-4 px-6 space-y-6"
+                      style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
                     >
-                      {content || 'ここに紡がれた詩文が縦書きで表示されます...'}
-                    </p>
-                  </div>
+                      <h2 className="text-xl font-normal tracking-widest text-[#1A1F2C] mb-8 border-l border-stone-300 pl-3">
+                        {title || '無題'}
+                      </h2>
+                      <div className="text-sm leading-loose tracking-wide whitespace-pre-wrap font-serif">
+                        {content}
+                      </div>
+                    </div>
+                  ) : (
+                    /* 横書きプレビュー表示 */
+                    <div className="w-full text-stone-900 font-serif py-4 px-2 space-y-4">
+                      <h2 className="text-xl font-normal tracking-wide text-[#1A1F2C] pb-2 border-b border-stone-200">
+                        {title || '無題'}
+                      </h2>
+                      <div className="text-sm leading-loose tracking-wide whitespace-pre-wrap font-serif">
+                        {content}
+                      </div>
+                    </div>
+                  )
                 ) : (
-                  <div className="p-6 bg-white/80 dark:bg-[#242B3B]/80 rounded border border-stone-200/60 dark:border-stone-800 min-h-[300px]">
-                    <p className="text-sm font-serif leading-loose text-stone-800 dark:text-stone-200 whitespace-pre-wrap">
-                      {content || 'ここに紡がれた詩文が横書きで表示されます...'}
-                    </p>
-                  </div>
+                  <p className="text-xs text-stone-400 font-sans italic text-center">
+                    本文を入力すると、こちらにプレビューが表示されます。
+                  </p>
                 )}
               </div>
             </div>
+          )}
 
-            <p className="text-[11px] font-sans text-stone-400 dark:text-stone-500 text-right mt-6 italic">
-              Poem pratyaya — 評価数非表示
+        </div>
+
+        {/* 投稿前の同意リマインダー & 送信アクション */}
+        <div className="bg-white p-6 sm:p-8 rounded-lg border border-stone-200 shadow-sm space-y-6">
+          
+          {/* 同意リマインダーカード */}
+          <div className="p-4 bg-amber-50/60 border border-amber-200/80 rounded-md">
+            <p className="text-xs font-sans text-amber-900 font-medium mb-2">【Poem Pratyaya 倫理リマインダー】</p>
+            <p className="text-xs text-stone-700 font-serif leading-relaxed mb-3">
+              言葉は他者を傷つける刃ではなく、自他の良心を照らす灯火です。推敲を重ねた言葉を静かに手渡しましょう。
             </p>
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={agreedToReminder}
+                onChange={(e) => setAgreedToReminder(e.target.checked)}
+                className="rounded border-stone-300 text-[#1A1F2C] focus:ring-[#D4A359]"
+              />
+              <span className="text-xs font-sans text-stone-800">
+                他者の尊厳を深め、良心を照らす言葉として送信することを確認します。
+              </span>
+            </label>
+          </div>
+
+          {/* エラーメッセージ表示 */}
+          {errorMsg && (
+            <p className="text-xs font-sans text-rose-600 bg-rose-50 p-3 rounded border border-rose-200">
+              {errorMsg}
+            </p>
+          )}
+
+          {/* 送信ボタン（下書き保存 / 今月公開） */}
+          <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-2 border-t border-stone-100">
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => handleSubmit('draft')}
+              className="w-full sm:w-auto px-6 py-2.5 bg-stone-100 text-stone-700 text-xs font-sans rounded hover:bg-stone-200 transition disabled:opacity-50"
+            >
+              {isSubmitting ? '処理中...' : isEditMode ? '下書きとして保存更新' : '下書きとして保存'}
+            </button>
+
+            <button
+              type="button"
+              disabled={isSubmitting || (!canPublish && originalStatus !== 'published') || !agreedToReminder}
+              onClick={() => handleSubmit('published')}
+              className="w-full sm:w-auto px-8 py-2.5 bg-[#1A1F2C] text-[#FBF9F5] text-xs font-sans tracking-wider rounded hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition shadow"
+            >
+              {isSubmitting
+                ? '保存更新中...'
+                : isEditMode
+                ? '推敲内容を公開更新する'
+                : `作品を公開する（今月残枠: ${Math.max(0, MONTHLY_LIMIT - monthlyPublishedCount)}作）`}
+            </button>
           </div>
 
         </div>
 
       </div>
     </div>
-  )
+  );
+}
+
+export default function NewPoemForm() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FBF9F5] text-[#1A1F2C] flex items-center justify-center font-serif">
+          <p className="text-xs font-sans text-stone-400">推敲室を読み込んでいます...</p>
+        </div>
+      }
+    >
+      <NewPoemFormInner />
+    </Suspense>
+  );
 }
