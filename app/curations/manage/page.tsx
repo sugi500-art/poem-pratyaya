@@ -1,4 +1,3 @@
-
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -30,11 +29,9 @@ export default function CurationManagePage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [userRole, setUserRole] = useState<'admin' | 'advisor' | 'user' | null>(null)
   
-  // 年月指定 (クライアントマウント時に現在の年月で初期化)
   const [selectedYear, setSelectedYear] = useState<number>(2026)
   const [selectedMonth, setSelectedMonth] = useState<number>(10)
 
-  // フォーム状態
   const [publishedPoems, setPublishedPoems] = useState<PoemOption[]>([])
   const [selectedPoemId, setSelectedPoemId] = useState('')
   const [curationComment, setCurationComment] = useState('')
@@ -46,7 +43,6 @@ export default function CurationManagePage() {
   const supabase = createClient()
   const router = useRouter()
 
-  // クライアント側でのマウント時に現在年月を設定（Prerender時の Date 参照エラーを防止）
   useEffect(() => {
     const today = new Date()
     setSelectedYear(today.getFullYear())
@@ -59,7 +55,6 @@ export default function CurationManagePage() {
     checkCuratorAuth()
   }, [hasMounted, selectedYear, selectedMonth])
 
-  // 選者権限確認とデータ取得
   async function checkCuratorAuth() {
     try {
       setLoading(true)
@@ -72,7 +67,6 @@ export default function CurationManagePage() {
         return
       }
 
-      // プロファイルから role 取得
       const { data: profile } = await supabase
         .from('profiles')
         .select('role, display_name, username')
@@ -92,7 +86,7 @@ export default function CurationManagePage() {
       })
       setUserRole(profile.role)
 
-      // 1. 公開詩篇一覧の取得
+      // 公開詩篇一覧の取得
       const { data: poemsData } = await supabase
         .from('poems')
         .select(`
@@ -117,7 +111,7 @@ export default function CurationManagePage() {
         setPublishedPoems(formatted)
       }
 
-      // 2. 指定年月の既存登録データを取得
+      // 指定年月の既存登録データを取得
       const { data: curationData } = await supabase
         .from('monthly_curations')
         .select('*')
@@ -143,7 +137,6 @@ export default function CurationManagePage() {
     }
   }
 
-  // キュレーション登録・更新ハンドラ
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedPoemId || !curationComment.trim() || !ethicsAgreed || !currentUser) return
@@ -156,9 +149,9 @@ export default function CurationManagePage() {
         ? `選者：${currentUser.display_name}（主宰）` 
         : `選者：${currentUser.display_name}`
 
+      // 1. monthly_curations テーブルの更新または挿入
       if (existingCuration) {
-        // 更新
-        const { error } = await supabase
+        const { error: updateError } = await supabase
           .from('monthly_curations')
           .update({
             poem_id: selectedPoemId,
@@ -167,11 +160,22 @@ export default function CurationManagePage() {
           })
           .eq('id', existingCuration.id)
 
-        if (error) throw error
+        if (updateError) throw updateError
+
+        // もし詩篇が変更された場合、旧詩篇の特選フラグを解除
+        if (existingCuration.poem_id !== selectedPoemId) {
+          await supabase
+            .from('poems')
+            .update({
+              is_featured: false,
+              curation_comment: null,
+            })
+            .eq('id', existingCuration.poem_id)
+        }
+
         setMessage({ type: 'success', text: `${selectedYear}年${selectedMonth}月の選評を更新しました。` })
       } else {
-        // 新規作成（1人月1作制限）
-        const { error } = await supabase
+        const { error: insertError } = await supabase
           .from('monthly_curations')
           .insert({
             year: selectedYear,
@@ -183,12 +187,12 @@ export default function CurationManagePage() {
             curation_comment: curationComment.trim(),
           })
 
-        if (error) throw error
+        if (insertError) throw insertError
         setMessage({ type: 'success', text: `${selectedYear}年${selectedMonth}月の月刊選考作品と鑑賞文を登録しました。` })
       }
 
-      // poems テーブル側にも同期（トップページヒーローエリアの高速取得用）
-      await supabase
+      // 2. poems テーブル側にも選考情報を同期（トップページ等での表示用）
+      const { error: poemSyncError } = await supabase
         .from('poems')
         .update({
           is_featured: true,
@@ -197,6 +201,14 @@ export default function CurationManagePage() {
           curated_at: new Date().toISOString(),
         })
         .eq('id', selectedPoemId)
+
+      if (poemSyncError) {
+        console.warn('poems テーブルへの同期警告:', poemSyncError)
+        setMessage({ 
+          type: 'error', 
+          text: `選評自体は保存されましたが、poems テーブルへの同期に失敗しました（理由: ${poemSyncError.message}）。Supabase SQL エディタで fix_monthly_curation_rls.sql を実行してください。` 
+        })
+      }
 
       checkCuratorAuth()
     } catch (err: any) {

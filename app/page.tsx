@@ -45,32 +45,83 @@ export default function HomePage() {
         setError(null)
         const supabase = createClient()
 
-        // 1. 月刊キュレーション特選作品（is_featured = true）の最新数件（最大2〜3件）を取得
-        const { data: featuredData, error: featuredError } = await supabase
-          .from('poems')
+        // 1. monthly_curations テーブルから最新のキュレーション特選データを優先取得
+        let curationsFound = false
+        const { data: curationsData, error: curationError } = await supabase
+          .from('monthly_curations')
           .select(`
             id,
-            title,
-            content,
-            published_at,
-            writing_mode,
-            is_featured,
-            curation_comment,
             curator_name,
-            curated_at,
-            author_id,
-            profiles:author_id ( display_name, username )
+            curation_comment,
+            updated_at,
+            created_at,
+            poem_id,
+            poems:poem_id (
+              id,
+              title,
+              content,
+              published_at,
+              writing_mode,
+              author_id,
+              profiles:author_id ( display_name, username )
+            )
           `)
-          .eq('status', 'published')
-          .eq('is_featured', true)
-          .order('curated_at', { ascending: false })
+          .order('year', { ascending: false })
+          .order('month', { ascending: false })
           .limit(3)
 
-        if (featuredError) {
-          console.warn('特選詩篇取得の注意:', featuredError.message)
+        if (!curationError && curationsData && curationsData.length > 0) {
+          const formattedCurations: Poem[] = curationsData
+            .filter((c: any) => c.poems)
+            .map((c: any) => ({
+              id: c.poems.id,
+              title: c.poems.title,
+              content: c.poems.content,
+              published_at: c.poems.published_at,
+              writing_mode: c.poems.writing_mode,
+              author_id: c.poems.author_id,
+              is_featured: true,
+              curation_comment: c.curation_comment,
+              curator_name: c.curator_name,
+              curated_at: c.updated_at || c.created_at,
+              profiles: c.poems.profiles,
+            }))
+
+          if (formattedCurations.length > 0) {
+            curationsFound = true
+            if (isMounted) setFeaturedPoems(formattedCurations)
+          }
         }
 
-        // 2. 新着公開詩篇を取得（6件）
+        // 2. フォールバック: poems テーブル側からの取得（is_featured = true）
+        if (!curationsFound) {
+          const { data: featuredData } = await supabase
+            .from('poems')
+            .select(`
+              id,
+              title,
+              content,
+              published_at,
+              writing_mode,
+              is_featured,
+              curation_comment,
+              curator_name,
+              curated_at,
+              author_id,
+              profiles:author_id ( display_name, username )
+            `)
+            .eq('status', 'published')
+            .eq('is_featured', true)
+            .order('curated_at', { ascending: false })
+            .limit(3)
+
+          if (featuredData && featuredData.length > 0 && isMounted) {
+            setFeaturedPoems(featuredData as unknown as Poem[])
+            curationsFound = true
+          }
+        }
+
+        // 3. 新着公開詩篇を取得（6件）
         const { data: recentData, error: recentError } = await supabase
           .from('poems')
           .select(`
@@ -93,9 +144,7 @@ export default function HomePage() {
           console.error('新着詩篇取得エラー:', recentError)
           if (isMounted) setError('作品の読み込みに失敗しました。時間をおいて再読み込みしてください。')
         } else if (isMounted) {
-          if (featuredData && featuredData.length > 0) {
-            setFeaturedPoems(featuredData as unknown as Poem[])
-          } else if (recentData && recentData.length > 0) {
+          if (!curationsFound && recentData && recentData.length > 0) {
             // 特選作品が指定されていない場合は新着先頭1件をフォールバック表示
             setFeaturedPoems([recentData[0] as unknown as Poem])
           }
@@ -236,7 +285,7 @@ export default function HomePage() {
 
           {loading ? (
             <div className="text-center py-16 text-xs font-sans text-stone-400 space-y-2">
-              <div className="inline-block w-4 h-4 border-2 border-stone-300 border-t-[#D4A359] rounded-full animate-spin" />
+              <div className="inline-block w-4 h-4 border-2 border-stone-300 border-[#D4A359] rounded-full animate-spin" />
               <p>静かに作品を読み込んでいます...</p>
             </div>
           ) : error ? (
@@ -310,4 +359,3 @@ export default function HomePage() {
     </div>
   )
 }
-
