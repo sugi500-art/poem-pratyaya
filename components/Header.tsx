@@ -1,37 +1,72 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export default function Header() {
+function HeaderInner() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
   const supabase = createClient()
 
-  useEffect(() => {
-    async function getUser() {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (user) {
+  // ユーザー情報取得処理
+  async function fetchUser() {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      setUser(currentUser)
+
+      if (currentUser) {
         const { data } = await supabase
           .from('profiles')
           .select('display_name, username, role')
-          .eq('id', user.id)
+          .eq('id', currentUser.id)
           .single()
         setProfile(data)
+      } else {
+        setProfile(null)
       }
+    } catch (err) {
+      console.error('ヘッダー認証情報取得エラー:', err)
     }
-    getUser()
-  }, [])
+  }
 
-  // ページ移動時にモバイルメニューを閉じる
+  // 初期ロードおよび認証状態のリアルタイム監視 (onAuthStateChange)
   useEffect(() => {
+    fetchUser()
+
+    // ログイン・ログアウトイベントをリアルタイムに検知してヘッダー表示を同期
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        fetchUser()
+      } else {
+        setUser(null)
+        setProfile(null)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [supabase])
+
+  // ページ遷移（pathname 変更）時にも認証情報を再確認し、モバイルメニューを閉じる
+  useEffect(() => {
+    fetchUser()
     setMobileMenuOpen(false)
   }, [pathname])
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setProfile(null)
+    setMobileMenuOpen(false)
+    router.push('/')
+    router.refresh()
+  }
 
   const displayName = profile?.display_name || profile?.username || '参加者'
   const isCurator = profile?.role === 'admin' || profile?.role === 'advisor'
@@ -69,10 +104,10 @@ export default function Header() {
               )}
               <Link
                 href="/mypage"
-                className="text-stone-700 dark:text-stone-200 font-medium max-w-[120px] truncate hover:text-[#D4A359] transition"
-                title={displayName}
+                className="text-stone-700 dark:text-stone-200 font-medium max-w-[140px] truncate hover:text-[#D4A359] transition"
+                title={`マイページ (${displayName})`}
               >
-                {displayName}
+                マイページ ({displayName})
               </Link>
               <Link
                 href="/poems/new"
@@ -80,14 +115,28 @@ export default function Header() {
               >
                 + 投稿
               </Link>
+              <button
+                onClick={handleSignOut}
+                className="text-stone-500 hover:text-rose-600 dark:text-stone-400 dark:hover:text-rose-400 transition"
+              >
+                ログアウト
+              </button>
             </div>
           ) : (
-            <Link
-              href="/login"
-              className="px-4 py-1.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded font-medium hover:opacity-90 transition"
-            >
-              ログイン
-            </Link>
+            <div className="flex items-center space-x-4 pl-4 border-l border-stone-200 dark:border-stone-700">
+              <Link
+                href="/mypage"
+                className="text-stone-600 dark:text-stone-300 hover:text-[#D4A359] transition"
+              >
+                マイページ
+              </Link>
+              <Link
+                href="/auth/login"
+                className="px-4 py-1.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded font-medium hover:opacity-90 transition"
+              >
+                ログイン
+              </Link>
+            </div>
           )}
         </nav>
 
@@ -108,19 +157,42 @@ export default function Header() {
       {/* スマホ用展開ドロワーメニュー */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-[#FBF9F5] dark:bg-[#1A1F2C] border-b border-[#E2DDD5] dark:border-stone-800 px-4 pt-3 pb-6 space-y-3 font-sans shadow-lg animate-in fade-in slide-in-from-top-2">
-          {user && (
+          {user ? (
             <div className="p-3 bg-[#F4F0E8] dark:bg-[#242B3B] rounded-lg mb-3 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <span>🕯️</span>
-                <span className="text-xs font-medium text-[#1A1F2C] dark:text-stone-100 max-w-[160px] truncate">
+                <span className="text-xs font-medium text-[#1A1F2C] dark:text-stone-100 max-w-[140px] truncate">
                   {displayName}
                 </span>
               </div>
+              <div className="flex items-center space-x-3">
+                <Link
+                  href="/mypage"
+                  className="text-xs text-[#D4A359] font-medium hover:underline"
+                >
+                  マイページ →
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="text-xs text-rose-600 dark:text-rose-400 hover:underline font-medium"
+                >
+                  ログアウト
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex justify-between items-center p-3 bg-[#F4F0E8] dark:bg-[#242B3B] rounded-lg mb-3">
               <Link
                 href="/mypage"
-                className="text-xs text-[#D4A359] font-medium hover:underline"
+                className="text-xs text-stone-700 dark:text-stone-300 hover:text-[#D4A359]"
               >
-                マイページ →
+                マイページへ
+              </Link>
+              <Link
+                href="/auth/login"
+                className="text-xs font-medium text-[#D4A359] hover:underline"
+              >
+                ログイン →
               </Link>
             </div>
           )}
@@ -155,3 +227,24 @@ export default function Header() {
     </header>
   )
 }
+
+export default function Header() {
+  return (
+    <Suspense
+      fallback={
+        <header className="bg-[#FBF9F5]/90 dark:bg-[#1A1F2C]/90 border-b border-[#E2DDD5] dark:border-stone-800 sticky top-0 z-50 h-16 flex items-center justify-between px-4 sm:px-8">
+          <div className="flex items-center space-x-2 font-serif">
+            <span className="text-xl">🕯️</span>
+            <span className="text-lg font-normal text-[#1A1F2C] dark:text-stone-100">
+              Poem pratyaya
+            </span>
+          </div>
+        </header>
+      }
+    >
+      <HeaderInner />
+    </Suspense>
+  )
+}
+
+
