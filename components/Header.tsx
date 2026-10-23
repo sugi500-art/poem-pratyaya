@@ -110,6 +110,9 @@ function HeaderInner() {
           <Link href="/poems" className="text-stone-600 dark:text-stone-300 hover:text-[#D4A359] transition font-medium">
             詩篇目録
           </Link>
+          <Link href="/curation/archive" className="text-stone-600 dark:text-stone-300 hover:text-[#D4A359] transition">
+            推薦アーカイヴ
+          </Link>
           <Link href="/lab" className="text-stone-600 dark:text-stone-300 hover:text-[#D4A359] transition">
             対話室（Lab）
           </Link>
@@ -262,6 +265,10 @@ function HeaderInner() {
               詩篇目録（全公開作品）
             </Link>
 
+            <Link href="/curation/archive" className="p-2 rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition">
+              月刊推薦アーカイヴ（過去の推薦・鑑賞）
+            </Link>
+
             <Link href="/lab" className="p-2 rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition">
               対話と深層批判の部屋（Pratyaya Lab）
             </Link>
@@ -302,6 +309,7 @@ export default function Header() {
     </Suspense>
   )
 }
+
 
 
 

@@ -188,9 +188,19 @@ export default function HomePage() {
                 Poem pratyaya — Monthly Curation
               </p>
             </div>
-            <span className="text-[11px] font-sans text-stone-500 dark:text-stone-400">
-              順位付けを行わない月刊推薦詩篇
-            </span>
+            <div className="flex items-center gap-3 text-xs font-sans">
+              <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                順位付けを行わない月刊推薦詩篇
+              </span>
+              <span className="text-stone-300 dark:text-stone-700">|</span>
+              <Link
+                href="/curation/archive"
+                className="text-[#D4A359] dark:text-[#E5B869] hover:underline font-medium flex items-center gap-1"
+              >
+                <span>📜 推薦アーカイヴ</span>
+                <span>→</span>
+              </Link>
+            </div>
           </div>
 
           {featuredPoems.length > 0 ? (
@@ -359,4 +369,5 @@ export default function HomePage() {
     </div>
   )
 }
+
 

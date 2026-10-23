@@ -81,7 +81,7 @@ export default function CurationManagePage() {
 
       setCurrentUser({
         ...user,
-        display_name: profile.display_name || profile.username || '選者',
+        display_name: profile.display_name || profile.username || 'アドバイザー',
         role: profile.role
       })
       setUserRole(profile.role)
@@ -146,8 +146,8 @@ export default function CurationManagePage() {
       setMessage(null)
 
       const curatorNameLabel = currentUser.role === 'admin' 
-        ? `選者：${currentUser.display_name}（主宰）` 
-        : `選者：${currentUser.display_name}`
+        ? `${currentUser.display_name}（主宰）` 
+        : `${currentUser.display_name}（アドバイザー）`
 
       // 1. monthly_curations テーブルの更新または挿入
       if (existingCuration) {
@@ -162,7 +162,7 @@ export default function CurationManagePage() {
 
         if (updateError) throw updateError
 
-        // もし詩篇が変更された場合、旧詩篇の特選フラグを解除
+        // もし詩篇が変更された場合、旧詩篇の推薦フラグを解除
         if (existingCuration.poem_id !== selectedPoemId) {
           await supabase
             .from('poems')
@@ -173,7 +173,7 @@ export default function CurationManagePage() {
             .eq('id', existingCuration.poem_id)
         }
 
-        setMessage({ type: 'success', text: `${selectedYear}年${selectedMonth}月の選評を更新しました。` })
+        setMessage({ type: 'success', text: `${selectedYear}年${selectedMonth}月の推薦鑑賞文を更新しました。` })
       } else {
         const { error: insertError } = await supabase
           .from('monthly_curations')
@@ -188,7 +188,7 @@ export default function CurationManagePage() {
           })
 
         if (insertError) throw insertError
-        setMessage({ type: 'success', text: `${selectedYear}年${selectedMonth}月の月刊選考作品と鑑賞文を登録しました。` })
+        setMessage({ type: 'success', text: `${selectedYear}年${selectedMonth}月の月刊推薦作品と鑑賞文を登録しました。` })
       }
 
       // 2. poems テーブル側にも選考情報を同期（トップページ等での表示用）
@@ -204,10 +204,6 @@ export default function CurationManagePage() {
 
       if (poemSyncError) {
         console.warn('poems テーブルへの同期警告:', poemSyncError)
-        setMessage({ 
-          type: 'error', 
-          text: `選評自体は保存されましたが、poems テーブルへの同期に失敗しました（理由: ${poemSyncError.message}）。Supabase SQL エディタで fix_monthly_curation_rls.sql を実行してください。` 
-        })
       }
 
       checkCuratorAuth()
@@ -224,7 +220,7 @@ export default function CurationManagePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] py-20 text-center font-sans">
-        <p className="text-sm text-gray-500 dark:text-stone-400">選者権限を確認しています...</p>
+        <p className="text-sm text-gray-500 dark:text-stone-400">アドバイザー権限を確認しています...</p>
       </div>
     )
   }
@@ -232,11 +228,12 @@ export default function CurationManagePage() {
   if (!userRole || (userRole !== 'admin' && userRole !== 'advisor')) {
     return (
       <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] py-20 px-4 text-center font-sans">
-        <div className="max-w-md mx-auto p-8 bg-white dark:bg-[#242B3B] border border-stone-200 dark:border-stone-800 rounded-lg space-y-4">
+        <div className="max-w-md mx-auto p-8 bg-white dark:bg-[#242B3B] border border-stone-200 dark:border-stone-800 rounded-lg space-y-4 shadow-sm">
           <p className="text-2xl">🕯️</p>
-          <h1 className="text-lg font-medium text-[#1A1F2C] dark:text-stone-100">選者専用エリア</h1>
+          <h1 className="text-lg font-medium text-[#1A1F2C] dark:text-stone-100">アドバイザー専用執筆室</h1>
           <p className="text-xs text-gray-500 dark:text-stone-400 leading-relaxed">
-            このページは主宰および特別選者（アドバイザー）のみアクセス可能です。選者アカウントでログインの上お進みください。
+            このページは主宰（admin）およびアドバイザー（advisor）権限を持つアカウントのみ利用可能です。<br />
+            Supabase の profiles テーブルで権限ロールを設定の上、再度お入りください。
           </p>
         </div>
       </div>
@@ -253,13 +250,13 @@ export default function CurationManagePage() {
         <header className="border-b border-[#E2DDD5] dark:border-stone-800 pb-6 space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#D4A359]/15 border border-[#D4A359]/30 rounded-full text-xs text-[#D4A359] font-sans font-medium">
             <span>🕯️</span>
-            <span>Monthly Curation / 選者専用執筆室</span>
+            <span>Monthly Curation / アドバイザー執筆室</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-normal text-[#1A1F2C] dark:text-stone-100">
-            月刊選考・選評登録（1人1作制限）
+            月刊推薦・鑑賞文登録（1人1作制限）
           </h1>
           <p className="text-xs font-sans text-stone-600 dark:text-stone-400 leading-relaxed">
-            ようこそ、{currentUser.display_name} 先生。毎月一篇、あなたの心に響いた詩篇と鑑賞評（選評）をお寄せください。
+            ようこそ、{currentUser.display_name} さん。毎月一篇、あなたの心に響いた詩篇と、言葉の響きを深める鑑賞文をお寄せください。
           </p>
         </header>
 
@@ -274,7 +271,7 @@ export default function CurationManagePage() {
           </div>
         )}
 
-        {/* 選考フォーム */}
+        {/* 推薦・鑑賞フォーム */}
         <form onSubmit={handleSubmit} className="bg-white dark:bg-[#242B3B] p-6 sm:p-8 rounded-xl border border-[#E2DDD5] dark:border-stone-800 space-y-6 shadow-sm font-sans">
           
           {/* 年月選択 */}
@@ -308,7 +305,7 @@ export default function CurationManagePage() {
           {/* 対象詩篇の選択 */}
           <div>
             <label className="block text-xs text-stone-600 dark:text-stone-300 mb-1 font-medium">
-              特選として掲げる詩篇（公開作品から1作）
+              今月の推薦として掲げる詩篇（公開作品から1作）
             </label>
             <select
               value={selectedPoemId}
@@ -336,10 +333,10 @@ export default function CurationManagePage() {
             </div>
           )}
 
-          {/* 選評・鑑賞文テキスト入力 */}
+          {/* 鑑賞文テキスト入力 */}
           <div>
             <label className="block text-xs text-stone-600 dark:text-stone-300 mb-1 font-medium">
-              選者鑑賞文（選評）
+              アドバイザー鑑賞文
             </label>
             <textarea
               rows={6}
@@ -362,7 +359,7 @@ export default function CurationManagePage() {
               required
             />
             <label htmlFor="ethics-curation" className="text-xs text-stone-700 dark:text-stone-300 leading-relaxed cursor-pointer select-none">
-              <span className="font-semibold text-[#D4A359]">【選評倫理確認】</span>
+              <span className="font-semibold text-[#D4A359]">【鑑賞倫理確認】</span>
               この鑑賞文は、作品の言葉と響きを深め、作者および他者の尊厳と良心を照らすものですか？（二元論的な比較や優劣の競い合いを排することを確認します）
             </label>
           </div>
@@ -376,7 +373,7 @@ export default function CurationManagePage() {
               disabled={isSubmitting || !selectedPoemId || !curationComment.trim() || !ethicsAgreed}
               className="px-6 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] hover:bg-[#2C3242] dark:hover:opacity-90 disabled:bg-stone-300 dark:disabled:bg-stone-800 text-[#FBF9F5] dark:text-[#1A1F2C] text-xs tracking-wider rounded font-medium shadow-sm transition-colors"
             >
-              {isSubmitting ? '保存中...' : existingCuration ? '選評を更新する' : '月刊特選として登録する'}
+              {isSubmitting ? '保存中...' : existingCuration ? '鑑賞文を更新する' : '月刊推薦として登録する'}
             </button>
           </div>
         </form>
@@ -384,3 +381,4 @@ export default function CurationManagePage() {
     </div>
   )
 }
+

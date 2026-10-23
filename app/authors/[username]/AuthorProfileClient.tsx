@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense, use } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 interface Profile {
@@ -24,6 +24,7 @@ interface Poem {
   status: 'draft' | 'published'
   published_at: string | null
   created_at: string
+  updated_at?: string
 }
 
 interface PoemReview {
@@ -44,12 +45,16 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
   const targetKey = decodeURIComponent(rawTarget).replace(/^%40|^\@/, '')
 
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const tabQuery = searchParams.get('tab')
+
   const supabase = createClient()
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [publishedPoems, setPublishedPoems] = useState<Poem[]>([])
   const [draftPoems, setDraftPoems] = useState<Poem[]>([])
   const [userReviews, setUserReviews] = useState<PoemReview[]>([])
+  const [monthlyPublishedCount, setMonthlyPublishedCount] = useState<number>(0)
 
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isOwner, setIsOwner] = useState(false)
@@ -60,7 +65,10 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
   const [copiedUrl, setCopiedUrl] = useState(false)
 
   // タブ ('published' | 'drafts' | 'reviews')
-  const [activeTab, setActiveTab] = useState<'published' | 'drafts' | 'reviews'>('published')
+  const initialTab = (tabQuery === 'drafts' || tabQuery === 'reviews' || tabQuery === 'published')
+    ? tabQuery
+    : 'published'
+  const [activeTab, setActiveTab] = useState<'published' | 'drafts' | 'reviews'>(initialTab)
 
   // プロフィール編集モーダル状態
   const [isEditing, setIsEditing] = useState(false)
@@ -74,6 +82,14 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
   const [deleteConfirmAgreed, setDeleteConfirmAgreed] = useState(false)
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const MONTHLY_LIMIT = 3
+
+  useEffect(() => {
+    if (tabQuery === 'drafts' || tabQuery === 'reviews' || tabQuery === 'published') {
+      setActiveTab(tabQuery)
+    }
+  }, [tabQuery])
 
   useEffect(() => {
     if (targetKey) {
@@ -120,16 +136,30 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
 
       setPublishedPoems((publishedData || []) as Poem[])
 
-      // 4. 本人の場合：下書き詩篇の取得
+      // 4. 本人の場合：下書き詩篇の取得 ＆ 今月の公開枠確認
       if (ownerCheck) {
         const { data: draftData } = await supabase
           .from('poems')
           .select('*')
           .eq('author_id', profileData.id)
           .eq('status', 'draft')
-          .order('created_at', { ascending: false })
+          .order('updated_at', { ascending: false })
 
         setDraftPoems((draftData || []) as Poem[])
+
+        // 今月の公開数カウント
+        const startOfMonth = new Date()
+        startOfMonth.setDate(1)
+        startOfMonth.setHours(0, 0, 0, 0)
+
+        const { count } = await supabase
+          .from('poems')
+          .select('id', { count: 'exact', head: true })
+          .eq('author_id', profileData.id)
+          .eq('status', 'published')
+          .gte('published_at', startOfMonth.toISOString())
+
+        setMonthlyPublishedCount(count || 0)
       }
 
       // 5. 寄せた鑑賞文（Pratyaya）の取得
@@ -154,6 +184,28 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
       setError(err.message || 'データ読込中にエラーが発生しました。')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 下書き削除ハンドラ
+  async function handleDeleteDraft(poemId: string, poemTitle: string) {
+    if (!currentUser || !isOwner) return
+    const titleLabel = poemTitle ? `『${poemTitle}』` : 'この下書き'
+    if (!confirm(`${titleLabel} を破棄（削除）しますか？\n破棄された言葉は復元できません。`)) return
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('poems')
+        .delete()
+        .eq('id', poemId)
+        .eq('author_id', currentUser.id)
+        .eq('status', 'draft')
+
+      if (deleteError) throw deleteError
+
+      setDraftPoems((prev) => prev.filter((p) => p.id !== poemId))
+    } catch (err: any) {
+      alert('下書きの削除に失敗しました: ' + (err.message || 'エラーが発生しました。'))
     }
   }
 
@@ -256,7 +308,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
   }
 
   return (
-    <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif py-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif py-10 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="max-w-4xl mx-auto space-y-10">
 
         {/* ナビゲーション */}
@@ -265,7 +317,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
             ← 言葉の聖域へ戻る
           </Link>
           <span className="text-xs font-sans text-stone-400">
-            Poem pratyaya — Member Profile
+            Poem pratyaya — Member Profile & Sanctuary
           </span>
         </nav>
 
@@ -292,8 +344,8 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                     </span>
                   )}
                   {profile.role === 'advisor' && (
-                    <span className="text-[10px] font-sans px-2 py-0.5 bg-emerald-700 text-white rounded font-medium">
-                      特別選者
+                    <span className="text-[10px] font-sans px-2 py-0.5 bg-[#D4A359]/20 text-[#8C621C] dark:text-[#E5B869] border border-[#D4A359]/30 rounded font-medium">
+                      アドバイザー
                     </span>
                   )}
                   {profile.role === 'user' && (
@@ -311,7 +363,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
 
             {/* 操作ボタンエリア（名刺代わりのURLコピー ＆ 本人用設定） */}
             <div className="flex items-center gap-2.5 flex-wrap">
-              {/* URLコピーボタン（誰でも使える共有ボタン） */}
+              {/* URLコピーボタン */}
               <button
                 onClick={handleCopyProfileUrl}
                 className={`inline-flex items-center gap-1.5 px-3.5 py-2 border rounded text-xs font-sans transition shadow-sm font-medium ${
@@ -319,10 +371,10 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                     ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200'
                     : 'bg-[#F4F0E8] dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-[#D4A359]'
                 }`}
-                title="この作品一覧プロフィールのURLをコピー（SNSや名刺代わりに共有できます）"
+                title="この作品一覧プロフィールのURLをコピー（名刺代わりに共有できます）"
               >
                 <span>{copiedUrl ? '✓' : '🔗'}</span>
-                <span>{copiedUrl ? 'URLをコピーしました 🕯️' : '作品目録（プロフィール）URLをコピー'}</span>
+                <span>{copiedUrl ? 'URLをコピーしました 🕯️' : '作品目録URLをコピー'}</span>
               </button>
 
               {/* 本人認証時：編集・退会ボタン */}
@@ -356,7 +408,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                   value={editDisplayName}
                   onChange={(e) => setEditDisplayName(e.target.value)}
                   placeholder="表示名を入力..."
-                  className="w-full px-3 py-2 bg-[#FBF9F5]/60 dark:bg-[#12161F]/60 border border-stone-300 dark:border-stone-700 rounded text-xs font-serif focus:outline-none focus:border-[#D4A359]"
+                  className="w-full px-3 py-2 bg-[#FBF9F5]/60 dark:bg-[#12161F]/60 border border-stone-300 dark:border-stone-700 rounded text-xs font-serif focus:outline-none focus:border-[#D4A359] text-stone-800 dark:text-stone-100"
                 />
               </div>
 
@@ -367,12 +419,12 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value)}
                   placeholder="関心のある言葉、言葉の響き、詩作の背景など..."
-                  className="w-full px-3 py-2 bg-[#FBF9F5]/60 dark:bg-[#12161F]/60 border border-stone-300 dark:border-stone-700 rounded text-xs font-serif leading-relaxed focus:outline-none focus:border-[#D4A359]"
+                  className="w-full px-3 py-2 bg-[#FBF9F5]/60 dark:bg-[#12161F]/60 border border-stone-300 dark:border-stone-700 rounded text-xs font-serif leading-relaxed focus:outline-none focus:border-[#D4A359] text-stone-800 dark:text-stone-100"
                 />
               </div>
 
               {saveMsg && (
-                <p className={`text-xs p-2 rounded font-sans ${saveMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                <p className={`text-xs p-2 rounded font-sans ${saveMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'}`}>
                   {saveMsg.text}
                 </p>
               )}
@@ -390,7 +442,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                   <button
                     type="button"
                     onClick={() => setIsEditing(false)}
-                    className="px-4 py-1.5 text-xs font-sans text-stone-500 hover:text-stone-800"
+                    className="px-4 py-1.5 text-xs font-sans text-stone-500 hover:text-stone-800 dark:hover:text-stone-300"
                   >
                     キャンセル
                   </button>
@@ -413,13 +465,13 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
           )}
 
           {/* 統計情報 */}
-          <div className="flex gap-6 text-xs font-sans text-stone-500 border-t border-stone-100 dark:border-stone-800 pt-4">
+          <div className="flex gap-6 text-xs font-sans text-stone-500 border-t border-stone-100 dark:border-stone-800 pt-4 flex-wrap">
             <div>
               公開詩篇：<strong className="text-stone-800 dark:text-stone-200 font-serif text-sm">{publishedPoems.length}</strong> 篇
             </div>
             {isOwner && (
               <div>
-                下書き：<strong className="text-[#D4A359] font-serif text-sm">{draftPoems.length}</strong> 篇
+                下書きの部屋：<strong className="text-[#D4A359] font-serif text-sm">{draftPoems.length}</strong> 篇
               </div>
             )}
             <div>
@@ -438,7 +490,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
               className={`pb-3 transition relative font-medium ${
                 activeTab === 'published'
                   ? 'text-[#1A1F2C] dark:text-stone-100 border-b-2 border-[#D4A359]'
-                  : 'text-stone-400 hover:text-stone-600'
+                  : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
               }`}
             >
               公開作品 ({publishedPoems.length})
@@ -450,10 +502,10 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                 className={`pb-3 transition relative font-medium ${
                   activeTab === 'drafts'
                     ? 'text-[#1A1F2C] dark:text-stone-100 border-b-2 border-[#D4A359]'
-                    : 'text-stone-400 hover:text-stone-600'
+                    : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
                 }`}
               >
-                下書きの部屋 ({draftPoems.length})
+                📂 下書きの部屋 ({draftPoems.length})
               </button>
             )}
 
@@ -462,7 +514,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
               className={`pb-3 transition relative font-medium ${
                 activeTab === 'reviews'
                   ? 'text-[#1A1F2C] dark:text-stone-100 border-b-2 border-[#D4A359]'
-                  : 'text-stone-400 hover:text-stone-600'
+                  : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
               }`}
             >
               寄せた鑑賞文 ({userReviews.length})
@@ -477,7 +529,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                   <Link
                     key={poem.id}
                     href={`/poems/${poem.id}`}
-                    className="block p-5 bg-white/80 dark:bg-[#242B3B]/80 border border-stone-200/80 dark:border-stone-800 rounded-lg hover:border-[#D4A359] transition shadow-sm space-y-2 group"
+                    className="block p-5 bg-white/80 dark:bg-[#242B3B]/80 border border-stone-200/80 dark:border-stone-800 rounded-lg hover:border-[#D4A359] dark:hover:border-[#D4A359] transition shadow-sm space-y-2 group"
                   >
                     <div className="flex justify-between items-center text-xs font-sans text-stone-400">
                       <span className="px-2 py-0.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 rounded text-[10px]">
@@ -498,50 +550,139 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                   </Link>
                 ))
               ) : (
-                <div className="p-8 text-center bg-white/50 dark:bg-[#242B3B]/50 rounded border border-stone-200/60 dark:border-stone-800 text-xs font-sans text-stone-400">
-                  まだ公開された作品はありません。
+                <div className="p-8 text-center bg-white/50 dark:bg-[#242B3B]/50 rounded border border-stone-200/60 dark:border-stone-800 text-xs font-sans text-stone-400 space-y-3">
+                  <p>まだ公開された詩篇はありません。</p>
+                  {isOwner && (
+                    <Link
+                      href="/poems/new"
+                      className="inline-block px-4 py-2 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded text-xs font-sans font-medium"
+                    >
+                      ＋ 最初の一篇を紡ぐ
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* タブ 2: 下書き作品一覧（本人のみ） */}
+          {/* タブ 2: 下書きの部屋（推敲管理・本人のみ） */}
           {activeTab === 'drafts' && isOwner && (
-            <div className="space-y-4">
-              {draftPoems.length > 0 ? (
-                draftPoems.map((poem) => (
-                  <div
-                    key={poem.id}
-                    className="p-5 bg-amber-50/30 dark:bg-amber-950/10 border border-amber-200/60 dark:border-amber-900/40 rounded-lg space-y-2"
-                  >
-                    <div className="flex justify-between items-center text-xs font-sans text-stone-400">
-                      <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 rounded text-[10px]">
-                        下書き
+            <div className="space-y-6">
+              
+              {/* 月間ステータス ＆ 新規作成ボタンバー */}
+              <div className="p-4 bg-white/90 dark:bg-[#242B3B]/90 border border-stone-200 dark:border-stone-800 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs font-sans shadow-sm">
+                <div>
+                  <span className="text-stone-500 dark:text-stone-400 font-medium">今月の公開枠：</span>
+                  <span className="font-serif text-sm ml-1 text-stone-800 dark:text-stone-100">
+                    今月公開済み <strong className="text-[#D4A359] text-base">{monthlyPublishedCount}</strong> / {MONTHLY_LIMIT} 作
+                    {monthlyPublishedCount < MONTHLY_LIMIT ? (
+                      <span className="ml-2 text-emerald-600 dark:text-emerald-400 font-sans text-xs">
+                        （残り {MONTHLY_LIMIT - monthlyPublishedCount} 作 公開可能）
                       </span>
-                      <span>保存日時: {new Date(poem.created_at).toLocaleDateString('ja-JP')}</span>
+                    ) : (
+                      <span className="ml-2 text-stone-400 font-sans text-xs">
+                        （今月の公開枠に達しました。納得がいくまで推敲を重ねられます）
+                      </span>
+                    )}
+                  </span>
+                  <p className="text-[11px] text-stone-400 mt-0.5">
+                    ※ 下書き保存数に制限はありません。言葉が熟すまで、心ゆくまで推敲していただけます。
+                  </p>
+                </div>
+
+                <Link
+                  href="/poems/new"
+                  className="px-4 py-2 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded font-medium hover:opacity-90 transition shadow-sm text-xs shrink-0 flex items-center gap-1.5"
+                >
+                  <span>＋</span>
+                  <span>新しい下書きを始める</span>
+                </Link>
+              </div>
+
+              {/* 下書き一覧 */}
+              {draftPoems.length > 0 ? (
+                <div className="space-y-4">
+                  {draftPoems.map((poem) => (
+                    <div
+                      key={poem.id}
+                      className="p-5 sm:p-6 bg-white/90 dark:bg-[#242B3B]/90 border border-stone-200 dark:border-stone-800 hover:border-[#D4A359]/60 dark:hover:border-[#D4A359]/60 rounded-lg transition shadow-sm space-y-4"
+                    >
+                      {/* メタ情報 */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-sans text-stone-500 dark:text-stone-400 border-b border-stone-100 dark:border-stone-800 pb-2.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded text-[10px] font-medium">
+                            下書き（非公開）
+                          </span>
+                          <span className="px-2 py-0.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 rounded text-[10px]">
+                            {poem.writing_mode === 'vertical' ? '縦書き' : '横書き'}
+                          </span>
+                          <span className="text-[11px] text-stone-400">
+                            {poem.content ? poem.content.length : 0} 文字
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[11px] text-stone-400">
+                          <span>初回保存: {new Date(poem.created_at).toLocaleDateString('ja-JP')}</span>
+                          {poem.updated_at && poem.updated_at !== poem.created_at && (
+                            <span className="text-[#D4A359]">
+                              最終推敲: {new Date(poem.updated_at).toLocaleDateString('ja-JP')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 本文プレビュー */}
+                      <div className="space-y-1.5">
+                        <h3 className="text-lg font-normal text-[#1A1F2C] dark:text-stone-100 font-serif">
+                          『{poem.title || '無題の詩篇'}』
+                        </h3>
+                        <p className="text-xs font-serif text-stone-600 dark:text-stone-300 line-clamp-3 leading-relaxed whitespace-pre-wrap bg-[#FBF9F5]/60 dark:bg-[#1A1F2C]/60 p-3.5 rounded border border-stone-100 dark:border-stone-800/80">
+                          {poem.content || '（本文はまだ入力されていません）'}
+                        </p>
+                      </div>
+
+                      {/* 操作バー */}
+                      <div className="pt-2 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs font-sans">
+                        <button
+                          onClick={() => handleDeleteDraft(poem.id, poem.title)}
+                          className="text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 transition text-[11px] flex items-center gap-1"
+                          title="この下書きを破棄（削除）する"
+                        >
+                          <span>🗑️</span>
+                          <span>下書きを破棄</span>
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/poems/new?edit=${poem.id}`}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded hover:opacity-90 transition font-medium text-xs shadow-sm"
+                          >
+                            <span>✏️</span>
+                            <span>推敲・編集を再開する</span>
+                          </Link>
+                        </div>
+                      </div>
                     </div>
-
-                    <h3 className="text-base font-normal text-[#1A1F2C] dark:text-stone-100">
-                      『{poem.title || '無題'}』
-                    </h3>
-
-                    <p className="text-xs font-serif text-stone-600 dark:text-stone-300 line-clamp-2 leading-relaxed">
-                      {poem.content}
-                    </p>
-
-                    <div className="pt-2 flex justify-end">
-                      <Link
-                        href={`/poems/new?edit=${poem.id}`}
-                        className="text-xs font-sans text-[#D4A359] hover:underline"
-                      >
-                        編集・推敲を再開する →
-                      </Link>
-                    </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               ) : (
-                <div className="p-8 text-center bg-white/50 dark:bg-[#242B3B]/50 rounded border border-stone-200/60 dark:border-stone-800 text-xs font-sans text-stone-400">
-                  下書き中の作品はありません。
+                <div className="p-12 text-center bg-white/70 dark:bg-[#242B3B]/70 rounded-xl border border-stone-200/80 dark:border-stone-800 text-xs font-sans space-y-3 shadow-sm">
+                  <p className="text-2xl">🕯️</p>
+                  <h3 className="text-sm font-medium text-stone-800 dark:text-stone-100 font-serif">
+                    下書きの部屋には、現在保存されている言葉はありません
+                  </h3>
+                  <p className="text-stone-500 dark:text-stone-400 max-w-md mx-auto leading-relaxed">
+                    ふと心に浮かんだ一行や断片を、いつでも静かに書き留めておけます。<br />
+                    保存した下書きは誰にも公開されず、心ゆくまで推敲を重ねることができます。
+                  </p>
+                  <div className="pt-2">
+                    <Link
+                      href="/poems/new"
+                      className="inline-block px-5 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded font-medium shadow-sm hover:opacity-90 transition text-xs"
+                    >
+                      ＋ 最初の詩篇を下書きする
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
@@ -653,7 +794,7 @@ export default function AuthorProfilePage({ params }: { params: Promise<{ userna
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] flex items-center justify-center font-serif">
-          <p className="text-xs font-sans text-stone-400">読み込み中...</p>
+          <p className="text-xs font-sans text-stone-400">プロファイルを静かに読み込んでいます...</p>
         </div>
       }
     >
@@ -661,3 +802,4 @@ export default function AuthorProfilePage({ params }: { params: Promise<{ userna
     </Suspense>
   )
 }
+

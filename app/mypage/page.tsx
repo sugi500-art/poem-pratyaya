@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
-export default function MyPage() {
+function MyPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabQuery = searchParams.get('tab');
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +51,12 @@ export default function MyPage() {
           profile = newProfile;
         }
 
-        // 自身の作品目録（プロフィール）ページへリダイレクト
-        router.replace(`/authors/${profile.username}`);
+        // クエリパラメータがあれば保持して転送
+        const destination = tabQuery
+          ? `/authors/${profile.username}?tab=${tabQuery}`
+          : `/authors/${profile.username}`;
+
+        router.replace(destination);
       } catch (err: any) {
         console.error('マイページ転送エラー:', err);
         setError(err.message || 'マイページの読み込みに失敗しました。');
@@ -59,7 +65,7 @@ export default function MyPage() {
     }
 
     checkUserAndRedirect();
-  }, [router, supabase]);
+  }, [router, supabase, tabQuery]);
 
   if (loading) {
     return (
@@ -89,6 +95,20 @@ export default function MyPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function MyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] flex items-center justify-center font-serif">
+          <div className="w-6 h-6 border-2 border-[#D4A359] border-t-transparent rounded-full animate-spin mx-auto" />
+        </div>
+      }
+    >
+      <MyPageInner />
+    </Suspense>
   );
 }
 

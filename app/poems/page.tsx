@@ -91,7 +91,7 @@ export default function PoemCatalogPage() {
   })
 
   return (
-    <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="max-w-5xl mx-auto space-y-10">
 
         {/* ナビゲーション */}
@@ -101,7 +101,7 @@ export default function PoemCatalogPage() {
           </Link>
           <Link
             href="/poems/new"
-            className="px-4 py-1.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs font-sans rounded hover:opacity-90 transition font-medium"
+            className="px-4 py-1.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs font-sans rounded hover:opacity-90 transition font-medium shadow-sm"
           >
             ＋ 一篇の詩を紡ぐ
           </Link>
@@ -129,7 +129,7 @@ export default function PoemCatalogPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="題名・本文・詩人名で絞り込み..."
-              className="w-full px-3.5 py-2 bg-[#FBF9F5]/80 dark:bg-[#12161F]/80 border border-stone-300 dark:border-stone-700 rounded focus:outline-none focus:border-[#D4A359] text-xs font-serif"
+              className="w-full px-3.5 py-2 bg-[#FBF9F5]/80 dark:bg-[#12161F]/80 border border-stone-300 dark:border-stone-700 rounded focus:outline-none focus:border-[#D4A359] text-xs font-serif text-[#1A1F2C] dark:text-stone-100 placeholder-stone-400"
             />
             {searchQuery && (
               <button
@@ -149,7 +149,7 @@ export default function PoemCatalogPage() {
               className={`px-3 py-1.5 rounded transition ${
                 filterWritingMode === 'all'
                   ? 'bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] font-medium'
-                  : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200'
+                  : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
               }`}
             >
               すべて
@@ -159,7 +159,7 @@ export default function PoemCatalogPage() {
               className={`px-3 py-1.5 rounded transition ${
                 filterWritingMode === 'vertical'
                   ? 'bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] font-medium'
-                  : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200'
+                  : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
               }`}
             >
               縦書き
@@ -169,7 +169,7 @@ export default function PoemCatalogPage() {
               className={`px-3 py-1.5 rounded transition ${
                 filterWritingMode === 'horizontal'
                   ? 'bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] font-medium'
-                  : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200'
+                  : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
               }`}
             >
               横書き
@@ -234,16 +234,20 @@ export default function PoemCatalogPage() {
                   <div className="flex items-center gap-2 text-xs font-sans">
                     <span className="text-stone-500 dark:text-stone-400">詩人：</span>
                     <Link
-                      href={`/profile/${poem.author?.username || 'anonymous'}`}
+                      href={`/authors/${poem.author?.username || poem.author?.id || 'anonymous'}`}
                       className="text-stone-800 dark:text-stone-200 hover:text-[#D4A359] transition font-medium"
                     >
                       {poem.author?.display_name || poem.author?.username || '無名の表現者'}
                     </Link>
                     {poem.author?.role === 'admin' && (
-                      <span className="text-[10px] bg-[#1A1F2C] text-[#FBF9F5] px-1.5 py-0.5 rounded">主宰</span>
+                      <span className="text-[10px] bg-[#1A1F2C] text-[#FBF9F5] dark:bg-[#D4A359] dark:text-[#1A1F2C] px-1.5 py-0.5 rounded font-sans">
+                        主宰
+                      </span>
                     )}
                     {poem.author?.role === 'advisor' && (
-                      <span className="text-[10px] bg-emerald-800 text-white px-1.5 py-0.5 rounded">特別選者</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-[#D4A359]/20 text-[#8C621C] dark:text-[#E5B869] border border-[#D4A359]/30 rounded font-sans tracking-wider">
+                        アドバイザー
+                      </span>
                     )}
                   </div>
 
