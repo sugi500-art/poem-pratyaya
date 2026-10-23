@@ -464,7 +464,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                 </Link>
                 {poem.author?.role === 'advisor' && (
                   <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-[#D4A359]/20 text-[#8C621C] dark:text-[#E5B869] rounded tracking-wider font-sans">
-                    特別選者
+                    アドバイザー
                   </span>
                 )}
                 {poem.author?.role === 'admin' && (
@@ -555,7 +555,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
           </div>
         </article>
 
-        {/* 月刊選考・選者鑑賞文カード */}
+        {/* 月刊推薦・アドバイザー鑑賞文カード */}
         {(poem.is_featured || poem.curation_comment) && (
           <CurationCard
             curatorName={poem.curator_name}
@@ -565,12 +565,12 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
           />
         )}
 
-        {/* 公式選評 */}
+        {/* アドバイザーによる鑑賞文 */}
         {officialReviews.length > 0 && (
           <section className="bg-[#FDFBF7] dark:bg-[#1E2533] border-l-4 border-[#D4A359] border-y border-r border-[#E5E0D8] dark:border-stone-800 rounded-r-lg p-6 md:p-8 space-y-6 shadow-sm">
             <div className="flex items-center space-x-3 border-b border-[#E5E0D8] dark:border-stone-800 pb-3">
               <span className="text-lg text-[#D4A359]">🕯️</span>
-              <h2 className="text-base font-medium tracking-widest text-[#1A1F2C] dark:text-stone-100 font-serif">公式選評・選考鑑賞</h2>
+              <h2 className="text-base font-medium tracking-widest text-[#1A1F2C] dark:text-stone-100 font-serif">アドバイザーによる鑑賞文</h2>
             </div>
 
             <div className="space-y-6">
@@ -578,7 +578,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                 <div key={review.id} className="space-y-3">
                   <div className="flex items-center justify-between text-xs text-[#8C92A4] dark:text-stone-400 font-sans">
                     <span className="font-medium text-[#1A1F2C] dark:text-stone-200">
-                      {review.reviewer?.display_name || review.reviewer?.username} （選評）
+                      {review.reviewer?.display_name || review.reviewer?.username} （アドバイザー鑑賞）
                     </span>
                     <span>{new Date(review.created_at).toLocaleDateString('ja-JP')}</span>
                   </div>
@@ -637,7 +637,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                         )}
                         {review.reviewer?.role === 'advisor' && (
                           <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 rounded">
-                            特別選者
+                            アドバイザー
                           </span>
                         )}
                       </div>
@@ -803,7 +803,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                                   )}
                                   {reply.reviewer?.role === 'advisor' && (
                                     <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 rounded">
-                                      特別選者
+                                      アドバイザー
                                     </span>
                                   )}
                                 </div>
@@ -943,4 +943,3 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
     </div>
   );
 }
-

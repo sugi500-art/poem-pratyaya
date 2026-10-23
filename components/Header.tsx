@@ -13,32 +13,21 @@ function HeaderInner() {
   const pathname = usePathname()
   const router = useRouter()
 
-  // 1. ダークモード（テーマ）の初期状態確認と適用
+  // 1. テーマ状態の初期化と同期
   useEffect(() => {
-    const isDark =
-      document.documentElement.classList.contains('dark') ||
-      localStorage.theme === 'dark' ||
-      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
-
-    if (isDark) {
-      document.documentElement.classList.add('dark')
-      setTheme('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      setTheme('light')
-    }
+    const isDark = document.documentElement.classList.contains('dark')
+    setTheme(isDark ? 'dark' : 'light')
   }, [])
 
-  // テーマ切り替えハンドラ
   const toggleTheme = () => {
-    if (theme === 'light') {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('theme', 'dark')
-      setTheme('dark')
-    } else {
+    if (theme === 'dark') {
       document.documentElement.classList.remove('dark')
       localStorage.setItem('theme', 'light')
       setTheme('light')
+    } else {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+      setTheme('dark')
     }
   }
 
@@ -145,7 +134,7 @@ function HeaderInner() {
                   href="/curation/manage"
                   className="px-3 py-1.5 bg-[#D4A359]/15 text-[#8C621C] dark:text-[#E5B869] border border-[#D4A359]/30 rounded font-medium hover:bg-[#D4A359]/25 transition"
                 >
-                  選考執筆室
+                  アドバイザー執筆室
                 </Link>
               )}
               <Link
@@ -265,7 +254,7 @@ function HeaderInner() {
                 href="/curation/manage"
                 className="p-2.5 bg-[#D4A359]/15 text-[#8C621C] dark:text-[#E5B869] border border-[#D4A359]/30 rounded text-center font-medium"
               >
-                🕯️ 月刊選考・選評執筆室
+                🕯️ 月刊推薦・アドバイザー執筆室
               </Link>
             )}
 
@@ -313,6 +302,7 @@ export default function Header() {
     </Suspense>
   )
 }
+
 
 
 

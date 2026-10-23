@@ -45,7 +45,7 @@ export default function HomePage() {
         setError(null)
         const supabase = createClient()
 
-        // 1. monthly_curations テーブルから最新のキュレーション特選データを優先取得
+        // 1. monthly_curations テーブルから最新のアドバイザー推薦データを優先取得
         let curationsFound = false
         const { data: curationsData, error: curationError } = await supabase
           .from('monthly_curations')
@@ -145,7 +145,7 @@ export default function HomePage() {
           if (isMounted) setError('作品の読み込みに失敗しました。時間をおいて再読み込みしてください。')
         } else if (isMounted) {
           if (!curationsFound && recentData && recentData.length > 0) {
-            // 特選作品が指定されていない場合は新着先頭1件をフォールバック表示
+            // 推薦作品が指定されていない場合は新着先頭1件をフォールバック表示
             setFeaturedPoems([recentData[0] as unknown as Poem])
           }
           if (recentData) {
@@ -179,7 +179,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif py-12 px-4 sm:px-6 lg:px-8 selection:bg-[#D4A359]/20 transition-colors duration-300">
       <div className="max-w-5xl mx-auto space-y-16">
 
-        {/* ヒーローエリア：月刊キュレーション（順位付けを行わない特選作品 & 鑑賞文） */}
+        {/* ヒーローエリア：月刊キュレーション（順位付けを行わない推薦作品 & 鑑賞文） */}
         <section className="bg-white/90 dark:bg-[#242B3B] p-8 sm:p-12 rounded-xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-6 relative overflow-hidden backdrop-blur-sm">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-stone-100 dark:border-stone-800 pb-4 gap-2">
             <div className="flex items-center gap-2">
@@ -189,7 +189,7 @@ export default function HomePage() {
               </p>
             </div>
             <span className="text-[11px] font-sans text-stone-500 dark:text-stone-400">
-              順位付けを行わない月刊特選詩篇
+              順位付けを行わない月刊推薦詩篇
             </span>
           </div>
 
@@ -200,7 +200,7 @@ export default function HomePage() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between border-b border-stone-200/60 dark:border-stone-800 pb-2">
                       <span className="px-2.5 py-0.5 bg-[#D4A359]/15 text-[#8C621C] dark:text-[#E5B869] text-xs font-sans rounded font-medium">
-                        {poem.curator_name || '選者特選'}
+                        {poem.curator_name || 'アドバイザー推薦'}
                       </span>
                       {poem.curated_at && (
                         <span className="text-[10px] font-sans text-stone-400">
@@ -223,7 +223,7 @@ export default function HomePage() {
                       {poem.content}
                     </div>
 
-                    {/* 選者鑑賞コメント */}
+                    {/* アドバイザー鑑賞コメント */}
                     {poem.curation_comment && (
                       <div className="p-4 bg-[#D4A359]/10 rounded border border-[#D4A359]/20 text-xs font-serif text-stone-700 dark:text-stone-300 leading-relaxed italic">
                         “ {poem.curation_comment} ”
@@ -306,7 +306,7 @@ export default function HomePage() {
                     </h3>
                     {poem.is_featured && (
                       <span className="text-[10px] bg-[#D4A359]/20 text-[#D4A359] px-1.5 py-0.5 rounded font-sans shrink-0">
-                        特選
+                        推薦
                       </span>
                     )}
                   </div>
@@ -359,3 +359,4 @@ export default function HomePage() {
     </div>
   )
 }
+

@@ -10,7 +10,7 @@ interface CurationCardProps {
 }
 
 export default function CurationCard({
-  curatorName = '選者鑑賞',
+  curatorName = 'アドバイザー鑑賞',
   curationComment,
   curatedAt,
   isFeatured = true,
@@ -31,14 +31,14 @@ export default function CurationCard({
               Poem pratyaya — Monthly Curation
             </span>
             <h2 className="text-base md:text-lg font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
-              月刊選考・選者鑑賞文
+              月刊推薦・アドバイザー鑑賞文
             </h2>
           </div>
         </div>
 
         <div className="flex items-center gap-3 text-xs font-sans text-stone-500 dark:text-stone-400">
           <span className="px-2.5 py-1 bg-[#D4A359]/15 text-[#8C621C] dark:text-[#E5B869] border border-[#D4A359]/30 rounded text-[11px] font-medium">
-            {curatorName || '選者鑑賞'}
+            {curatorName || 'アドバイザー鑑賞'}
           </span>
           {curatedAt && (
             <span>{new Date(curatedAt).toLocaleDateString('ja-JP')}</span>
@@ -57,15 +57,16 @@ export default function CurationCard({
             <span className="text-3xl text-[#D4A359]/30 font-serif leading-none absolute bottom-1 right-2 select-none">”</span>
           </div>
           <p className="text-[11px] font-sans text-stone-500 dark:text-stone-400 italic text-right">
-            言葉の響き（Vāc）と構造を深く読み解いた公式鑑賞評
+            言葉の響き（Vāc）と構造を深く読み解いたアドバイザー鑑賞文
           </p>
         </div>
       ) : (
         <p className="text-xs font-sans text-stone-500 dark:text-stone-400 italic py-2">
-          この詩篇は今月の特選作品として選定されています。
+          この詩篇は今月のアドバイザー推薦作品として選定されています。
         </p>
       )}
     </section>
   )
 }
+
 
