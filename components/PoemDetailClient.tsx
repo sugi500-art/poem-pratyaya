@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import CurationCard from '@/components/CurationCard';
+import VacAudioPlayer from '@/components/VacAudioPlayer';
 
 interface Profile {
   id: string;
@@ -24,6 +25,7 @@ interface Poem {
   published_at: string | null;
   created_at: string;
   updated_at?: string;
+  audio_url?: string | null;
   is_featured?: boolean;
   curation_comment?: string | null;
   curator_name?: string | null;
@@ -506,6 +508,17 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
             </div>
           </div>
 
+          {/* 朗読音声（Vāc Sound）プレイヤー */}
+          {poem.audio_url && (
+            <div className="mb-10">
+              <VacAudioPlayer
+                audioUrl={poem.audio_url}
+                title={poem.title}
+                poetName={poem.author?.display_name || poem.author?.username}
+              />
+            </div>
+          )}
+
           {/* 詩本文エリア */}
           {viewWritingMode === 'vertical' ? (
             <div className="w-full overflow-x-auto py-8 px-4 flex justify-end">
@@ -943,3 +956,4 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
     </div>
   );
 }
+
