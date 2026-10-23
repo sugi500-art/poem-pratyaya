@@ -19,7 +19,9 @@ export interface ForumPost {
   author_name?: string
   author_role?: 'user' | 'advisor' | 'admin'
   content: string
+  is_edited?: boolean
   created_at: string
+  updated_at?: string
   author?: {
     display_name: string | null
     username: string | null
@@ -38,6 +40,7 @@ export interface ForumThread {
   posts_count: number
   last_activity_at: string
   created_at: string
+  updated_at?: string
   author?: {
     display_name: string | null
     username: string | null
@@ -62,22 +65,29 @@ const DEFAULT_CATEGORIES: ForumCategory[] = [
     display_order: 2,
   },
   {
+    id: 'arts-resonance',
+    slug: 'arts-resonance',
+    name: '書評・映画・音楽評（Arts & Resonances）',
+    description: '他者の表現（本・映画・音楽）に触れて立ち現れた心の響き、言葉の構造や余韻について静かに語り合う部屋。消費的なレビューではなく、作品への敬意を込めた対話の場です。',
+    display_order: 3,
+  },
+  {
     id: 'experimental',
     slug: 'experimental',
     name: '雑作・実験室（Experimental Lab）',
     description: '断片的なフレーズ、音響実験、試作段階の言葉の書き付け。',
-    display_order: 3,
+    display_order: 4,
   },
   {
     id: 'tea-room',
     slug: 'tea-room',
     name: '雑談・静かな茶室（Tea Room）',
     description: '日常の観察、創作に伴う思索、季節の移ろいや読書体験の共有。',
-    display_order: 4,
+    display_order: 5,
   },
 ]
 
-export default function ForumPage() {
+export default function ForumLabClient() {
   const [hasMounted, setHasMounted] = useState(false)
   const [categories, setCategories] = useState<ForumCategory[]>(DEFAULT_CATEGORIES)
   const [threads, setThreads] = useState<ForumThread[]>([])
@@ -89,6 +99,7 @@ export default function ForumPage() {
 
   // ユーザー状態
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [userProfile, setUserProfile] = useState<any>(null)
 
   // 新規スレッドモーダル
   const [isNewThreadOpen, setIsNewThreadOpen] = useState(false)
@@ -96,6 +107,17 @@ export default function ForumPage() {
   const [newThreadTitle, setNewThreadTitle] = useState('')
   const [newThreadContent, setNewThreadContent] = useState('')
   const [newThreadEthicsAgreed, setNewThreadEthicsAgreed] = useState(false)
+
+  // スレッド編集状態
+  const [isEditingThread, setIsEditingThread] = useState(false)
+  const [editThreadTitle, setEditThreadTitle] = useState('')
+  const [editThreadContent, setEditThreadContent] = useState('')
+  const [isSavingThread, setIsSavingThread] = useState(false)
+
+  // 投稿（返信）編集状態
+  const [editingPostId, setEditingPostId] = useState<string | null>(null)
+  const [editPostContent, setEditPostContent] = useState('')
+  const [isSavingPost, setIsSavingPost] = useState(false)
 
   // 新規返信
   const [replyContent, setReplyContent] = useState('')
@@ -121,11 +143,21 @@ export default function ForumPage() {
       setLoading(true)
       setError(null)
 
-      // 1. ユーザー情報の取得
+      // 1. ユーザー情報・プロフィールの取得
       const { data: { user } } = await supabase.auth.getUser()
       setCurrentUser(user)
 
-      // 2. カテゴリの取得（Supabase）
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+
+        setUserProfile(profile)
+      }
+
+      // 2. カテゴリの取得
       const { data: catData } = await supabase
         .from('forum_categories')
         .select('*')
@@ -218,6 +250,36 @@ export default function ForumPage() {
     }
   }
 
+  // スレッド更新（推敲・編集）
+  const handleUpdateThread = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!activeThread || !editThreadTitle.trim() || !editThreadContent.trim() || !currentUser) return
+
+    try {
+      setIsSavingThread(true)
+      const nowIso = new Date().toISOString()
+
+      const { error: updateError } = await supabase
+        .from('forum_threads')
+        .update({
+          title: editThreadTitle.trim(),
+          content: editThreadContent.trim(),
+          updated_at: nowIso,
+        })
+        .eq('id', activeThread.id)
+        .eq('author_id', currentUser.id)
+
+      if (updateError) throw updateError
+
+      setIsEditingThread(false)
+      await fetchThreads()
+    } catch (err: any) {
+      alert('スレッドの更新に失敗しました: ' + (err.message || 'エラーが発生しました'))
+    } finally {
+      setIsSavingThread(false)
+    }
+  }
+
   // 返信・応答の送信 (Supabase)
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -242,6 +304,36 @@ export default function ForumPage() {
       alert('応答の送信に失敗しました: ' + (err.message || 'エラーが発生しました'))
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  // 返信・応答の更新（推敲・編集）
+  const handleUpdatePost = async (postId: string) => {
+    if (!editPostContent.trim() || !currentUser) return
+
+    try {
+      setIsSavingPost(true)
+      const nowIso = new Date().toISOString()
+
+      const { error: updateError } = await supabase
+        .from('forum_posts')
+        .update({
+          content: editPostContent.trim(),
+          is_edited: true,
+          updated_at: nowIso,
+        })
+        .eq('id', postId)
+        .eq('author_id', currentUser.id)
+
+      if (updateError) throw updateError
+
+      setEditingPostId(null)
+      setEditPostContent('')
+      await fetchThreads()
+    } catch (err: any) {
+      alert('応答の更新に失敗しました: ' + (err.message || 'エラーが発生しました'))
+    } finally {
+      setIsSavingPost(false)
     }
   }
 
@@ -292,10 +384,13 @@ export default function ForumPage() {
 
   const activeThread = threads.find((t) => t.id === activeThreadId)
 
+  // 選択中カテゴリの情報
+  const currentCategoryObj = categories.find((c) => c.id === selectedCategoryId)
+
   return (
     <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif antialiased pb-20 selection:bg-[#D4A359]/20">
       
-      {/* ページヘッダー */}
+      {/* ページヘッダー：引き算の洗練されたコンパクトデザイン */}
       <header className="border-b border-[#E2DDD5] dark:border-stone-800 bg-[#F4F0E8] dark:bg-[#121621] py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="space-y-1 text-center sm:text-left">
@@ -306,6 +401,9 @@ export default function ForumPage() {
             <h1 className="text-2xl sm:text-3xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
               Pratyaya Lab（フォーラム）
             </h1>
+            <p className="text-xs text-stone-600 dark:text-stone-400 font-sans max-w-xl">
+              詩論・表現論・書評・映画・音楽の余韻。他者の尊厳と良心を照らし、響き合う対話の部屋です。
+            </p>
           </div>
 
           <Link
@@ -340,6 +438,7 @@ export default function ForumPage() {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategoryId(cat.id)}
+                  title={cat.description}
                   className={`px-4 py-2 text-xs font-sans rounded transition-colors ${
                     selectedCategoryId === cat.id
                       ? 'bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] font-medium shadow-sm'
@@ -369,6 +468,17 @@ export default function ForumPage() {
             </Link>
           )}
         </div>
+
+        {/* 選択中カテゴリの案内バナー */}
+        {currentCategoryObj && selectedCategoryId !== 'all' && (
+          <div className="mb-6 p-4 bg-[#F4F0E8]/70 dark:bg-[#242B3B]/50 border border-[#E2DDD5] dark:border-stone-800 rounded-lg text-xs font-sans text-stone-600 dark:text-stone-300 leading-relaxed flex items-start gap-2.5">
+            <span className="text-[#D4A359] text-base leading-none">🕯️</span>
+            <div>
+              <strong className="text-stone-800 dark:text-stone-100 font-medium mr-2">【{currentCategoryObj.name}】</strong>
+              <span>{currentCategoryObj.description}</span>
+            </div>
+          </div>
+        )}
 
         {/* モバイル表示切り替えタブ (スマホ画面のみ) */}
         <div className="flex lg:hidden bg-[#E2DDD5] dark:bg-stone-800 p-1 rounded-lg mb-6 text-xs font-sans">
@@ -434,12 +544,14 @@ export default function ForumPage() {
                   const category = categories.find((c) => c.id === thread.category_id)
                   const isActive = activeThreadId === thread.id
                   const authorName = thread.author?.display_name || thread.author?.username || thread.author_name || '無名の投稿者'
+                  const isThreadEdited = thread.updated_at && thread.updated_at !== thread.created_at
 
                   return (
                     <div
                       key={thread.id}
                       onClick={() => {
                         setActiveThreadId(thread.id)
+                        setIsEditingThread(false)
                         setMobileView('detail')
                       }}
                       className={`p-5 rounded-lg border transition-all cursor-pointer space-y-3 ${
@@ -452,7 +564,12 @@ export default function ForumPage() {
                         <span className="px-2 py-0.5 bg-[#D4A359]/15 text-[#D4A359] rounded font-medium">
                           {category?.name || '対話'}
                         </span>
-                        <span>{new Date(thread.last_activity_at).toLocaleDateString('ja-JP')}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span>{new Date(thread.last_activity_at).toLocaleDateString('ja-JP')}</span>
+                          {isThreadEdited && (
+                            <span className="text-[10px] opacity-75">（編集済）</span>
+                          )}
+                        </div>
                       </div>
 
                       <h3 className="text-base font-medium text-[#1A1F2C] dark:text-stone-100 leading-snug line-clamp-2">
@@ -493,26 +610,95 @@ export default function ForumPage() {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span>{new Date(activeThread.created_at).toLocaleDateString('ja-JP')}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span>{new Date(activeThread.created_at).toLocaleDateString('ja-JP')}</span>
+                          {activeThread.updated_at && activeThread.updated_at !== activeThread.created_at && (
+                            <span className="text-[10px] text-stone-400">（推敲・編集済み）</span>
+                          )}
+                        </div>
+
                         {currentUser && activeThread.author_id === currentUser.id && (
-                          <button
-                            onClick={() => handleDeleteThread(activeThread.id)}
-                            className="text-stone-400 hover:text-rose-600 text-[11px] font-sans"
-                            title="スレッドを削除"
-                          >
-                            削除
-                          </button>
+                          <div className="flex items-center gap-2 pl-2 border-l border-stone-200 dark:border-stone-700">
+                            <button
+                              onClick={() => {
+                                setIsEditingThread(true)
+                                setEditThreadTitle(activeThread.title)
+                                setEditThreadContent(activeThread.content)
+                              }}
+                              className="text-stone-400 hover:text-[#D4A359] text-[11px] font-sans transition"
+                              title="スレッドの問いを推敲・編集"
+                            >
+                              ✏️ 編集
+                            </button>
+                            <button
+                              onClick={() => handleDeleteThread(activeThread.id)}
+                              className="text-stone-400 hover:text-rose-600 text-[11px] font-sans transition"
+                              title="スレッドを削除"
+                            >
+                              🗑️ 削除
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
 
-                    <h2 className="text-xl sm:text-2xl font-normal text-[#1A1F2C] dark:text-stone-100 leading-snug">
-                      {activeThread.title}
-                    </h2>
+                    {/* スレッド本文 または 編集フォーム */}
+                    {isEditingThread ? (
+                      <form onSubmit={handleUpdateThread} className="space-y-4 pt-2 font-sans">
+                        <div className="space-y-1">
+                          <label className="block text-xs text-stone-600 dark:text-stone-400 font-medium">
+                            問いの題名（タイトル）
+                          </label>
+                          <input
+                            type="text"
+                            value={editThreadTitle}
+                            onChange={(e) => setEditThreadTitle(e.target.value)}
+                            className="w-full p-2.5 border border-[#E2DDD5] dark:border-stone-700 rounded bg-[#FBF9F5] dark:bg-[#1A1F2C] text-sm text-[#1A1F2C] dark:text-stone-100 font-serif focus:outline-none focus:border-[#D4A359]"
+                            required
+                          />
+                        </div>
 
-                    <div className="p-6 bg-[#FBF9F5] dark:bg-[#1A1F2C] rounded-lg border border-[#E2DDD5] dark:border-stone-800 text-sm sm:text-base leading-relaxed text-stone-800 dark:text-stone-200 font-serif whitespace-pre-wrap">
-                      {activeThread.content}
-                    </div>
+                        <div className="space-y-1">
+                          <label className="block text-xs text-stone-600 dark:text-stone-400 font-medium">
+                            本文・思索の背景
+                          </label>
+                          <textarea
+                            rows={6}
+                            value={editThreadContent}
+                            onChange={(e) => setEditThreadContent(e.target.value)}
+                            className="w-full p-3 border border-[#E2DDD5] dark:border-stone-700 rounded bg-[#FBF9F5] dark:bg-[#1A1F2C] text-sm font-serif text-[#1A1F2C] dark:text-stone-100 focus:outline-none focus:border-[#D4A359] leading-relaxed"
+                            required
+                          />
+                        </div>
+
+                        <div className="flex justify-end gap-2 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingThread(false)}
+                            className="px-4 py-1.5 text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"
+                          >
+                            キャンセル
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isSavingThread || !editThreadTitle.trim() || !editThreadContent.trim()}
+                            className="px-5 py-1.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded font-medium hover:opacity-90 transition disabled:opacity-40"
+                          >
+                            {isSavingThread ? '保存中...' : '推敲内容を保存する'}
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <h2 className="text-xl sm:text-2xl font-normal text-[#1A1F2C] dark:text-stone-100 leading-snug">
+                          {activeThread.title}
+                        </h2>
+
+                        <div className="p-6 bg-[#FBF9F5] dark:bg-[#1A1F2C] rounded-lg border border-[#E2DDD5] dark:border-stone-800 text-sm sm:text-base leading-relaxed text-stone-800 dark:text-stone-200 font-serif whitespace-pre-wrap">
+                          {activeThread.content}
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* 投稿・応答一覧 */}
@@ -533,6 +719,8 @@ export default function ForumPage() {
                         {activeThread.posts.map((post) => {
                           const postAuthor = post.author?.display_name || post.author?.username || post.author_name || '読者'
                           const isPostAuthor = currentUser && post.author_id === currentUser.id
+                          const isPostEdited = post.is_edited || (post.updated_at && post.updated_at !== post.created_at)
+                          const isCurrentlyEditing = editingPostId === post.id
 
                           return (
                             <div
@@ -545,22 +733,72 @@ export default function ForumPage() {
                                 </Link>
 
                                 <div className="flex items-center gap-3 text-stone-400">
-                                  <span>{new Date(post.created_at).toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span>{new Date(post.created_at).toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                    {isPostEdited && (
+                                      <span className="text-[10px] text-stone-400">（編集済み）</span>
+                                    )}
+                                  </div>
+
                                   {isPostAuthor && (
-                                    <button
-                                      onClick={() => handleDeletePost(post.id)}
-                                      className="text-stone-400 hover:text-rose-600 text-[11px]"
-                                      title="応答を削除"
-                                    >
-                                      削除
-                                    </button>
+                                    <div className="flex items-center gap-2 pl-2 border-l border-stone-200 dark:border-stone-700">
+                                      <button
+                                        onClick={() => {
+                                          setEditingPostId(post.id)
+                                          setEditPostContent(post.content)
+                                        }}
+                                        className="text-stone-400 hover:text-[#D4A359] text-[11px] transition"
+                                        title="応答を推敲・編集"
+                                      >
+                                        ✏️ 編集
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeletePost(post.id)}
+                                        className="text-stone-400 hover:text-rose-600 text-[11px] transition"
+                                        title="応答を削除"
+                                      >
+                                        🗑️ 削除
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
                               </div>
 
-                              <p className="text-sm font-serif leading-relaxed text-stone-800 dark:text-stone-200 whitespace-pre-wrap">
-                                {post.content}
-                              </p>
+                              {isCurrentlyEditing ? (
+                                <div className="space-y-3 pt-1 font-sans">
+                                  <textarea
+                                    rows={3}
+                                    value={editPostContent}
+                                    onChange={(e) => setEditPostContent(e.target.value)}
+                                    className="w-full p-3 border border-[#E2DDD5] dark:border-stone-700 rounded bg-[#FBF9F5] dark:bg-[#1A1F2C] text-sm font-serif text-[#1A1F2C] dark:text-stone-100 focus:outline-none focus:border-[#D4A359]"
+                                    required
+                                  />
+                                  <div className="flex justify-end gap-2 text-xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingPostId(null)
+                                        setEditPostContent('')
+                                      }}
+                                      className="px-3 py-1 text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"
+                                    >
+                                      キャンセル
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={isSavingPost || !editPostContent.trim()}
+                                      onClick={() => handleUpdatePost(post.id)}
+                                      className="px-4 py-1 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded font-medium hover:opacity-90 transition disabled:opacity-40"
+                                    >
+                                      {isSavingPost ? '保存中...' : '保存する'}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-sm font-serif leading-relaxed text-stone-800 dark:text-stone-200 whitespace-pre-wrap">
+                                  {post.content}
+                                </p>
+                              )}
                             </div>
                           )
                         })}
@@ -669,7 +907,7 @@ export default function ForumPage() {
                   type="text"
                   value={newThreadTitle}
                   onChange={(e) => setNewThreadTitle(e.target.value)}
-                  placeholder="例：改行の「間」がもたらす時間感覚についての考察"
+                  placeholder="例：『銀河鉄道の夜』における光と孤独の構造"
                   className="w-full p-3 border border-[#E2DDD5] dark:border-stone-700 rounded bg-white dark:bg-[#242B3B] text-xs text-[#1A1F2C] dark:text-stone-100 font-serif"
                   required
                 />
@@ -727,3 +965,4 @@ export default function ForumPage() {
     </div>
   )
 }
+
