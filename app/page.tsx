@@ -45,8 +45,8 @@ export default function HomePage() {
         setError(null)
         const supabase = createClient()
 
-        // 1. monthly_curations テーブルから最新のアドバイザー推薦データを優先取得
-        let curationsFound = false
+        // 1. monthly_curations テーブルから最新のアドバイザー推薦データを取得
+        // ※ 登録データがない場合は、勝手に新着作品を推薦扱いにせず、空（推薦なし）の状態を保ちます
         const { data: curationsData, error: curationError } = await supabase
           .from('monthly_curations')
           .select(`
@@ -87,41 +87,17 @@ export default function HomePage() {
               profiles: c.poems.profiles,
             }))
 
-          if (formattedCurations.length > 0) {
-            curationsFound = true
-            if (isMounted) setFeaturedPoems(formattedCurations)
+          if (isMounted) {
+            setFeaturedPoems(formattedCurations)
+          }
+        } else {
+          // 推薦データが存在しない場合は空配列（身内の推薦印象を排すための初期状態）
+          if (isMounted) {
+            setFeaturedPoems([])
           }
         }
 
-        // 2. フォールバック: poems テーブル側からの取得（is_featured = true）
-        if (!curationsFound) {
-          const { data: featuredData } = await supabase
-            .from('poems')
-            .select(`
-              id,
-              title,
-              content,
-              published_at,
-              writing_mode,
-              is_featured,
-              curation_comment,
-              curator_name,
-              curated_at,
-              author_id,
-              profiles:author_id ( display_name, username )
-            `)
-            .eq('status', 'published')
-            .eq('is_featured', true)
-            .order('curated_at', { ascending: false })
-            .limit(3)
-
-          if (featuredData && featuredData.length > 0 && isMounted) {
-            setFeaturedPoems(featuredData as unknown as Poem[])
-            curationsFound = true
-          }
-        }
-
-        // 3. 新着公開詩篇を取得（6件）
+        // 2. 新着公開詩篇を取得（6件）
         const { data: recentData, error: recentError } = await supabase
           .from('poems')
           .select(`
@@ -130,9 +106,6 @@ export default function HomePage() {
             content,
             published_at,
             writing_mode,
-            is_featured,
-            curation_comment,
-            curator_name,
             author_id,
             profiles:author_id ( display_name, username )
           `)
@@ -143,14 +116,8 @@ export default function HomePage() {
         if (recentError) {
           console.error('新着詩篇取得エラー:', recentError)
           if (isMounted) setError('作品の読み込みに失敗しました。時間をおいて再読み込みしてください。')
-        } else if (isMounted) {
-          if (!curationsFound && recentData && recentData.length > 0) {
-            // 推薦作品が指定されていない場合は新着先頭1件をフォールバック表示
-            setFeaturedPoems([recentData[0] as unknown as Poem])
-          }
-          if (recentData) {
-            setRecentPoems(recentData as unknown as Poem[])
-          }
+        } else if (isMounted && recentData) {
+          setRecentPoems(recentData as unknown as Poem[])
         }
       } catch (err) {
         console.error('データ取得中の予期せぬエラー:', err)
@@ -179,31 +146,31 @@ export default function HomePage() {
     <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif py-12 px-4 sm:px-6 lg:px-8 selection:bg-[#D4A359]/20 transition-colors duration-300">
       <div className="max-w-5xl mx-auto space-y-16">
 
-        {/* ヒーローエリア：月刊キュレーション（順位付けを行わない推薦作品 & 鑑賞文） */}
-        <section className="bg-white/90 dark:bg-[#242B3B] p-8 sm:p-12 rounded-xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-6 relative overflow-hidden backdrop-blur-sm">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-stone-100 dark:border-stone-800 pb-4 gap-2">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#D4A359] animate-pulse" />
-              <p className="text-xs font-sans tracking-widest text-[#D4A359] uppercase font-medium">
-                Poem pratyaya — Monthly Curation
-              </p>
+        {/* ヒーローエリア：月刊推薦詩篇（推薦が存在する場合のみ静かに立ち現れる） */}
+        {featuredPoems.length > 0 ? (
+          <section className="bg-white/90 dark:bg-[#242B3B] p-8 sm:p-12 rounded-xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-6 relative overflow-hidden backdrop-blur-sm animate-in fade-in duration-500">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-stone-100 dark:border-stone-800 pb-4 gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#D4A359] animate-pulse" />
+                <p className="text-xs font-sans tracking-widest text-[#D4A359] uppercase font-medium">
+                  Poem pratyaya — Monthly Curation
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-xs font-sans">
+                <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                  順位付けを行わない月刊推薦詩篇
+                </span>
+                <span className="text-stone-300 dark:text-stone-700">|</span>
+                <Link
+                  href="/curation/archive"
+                  className="text-[#D4A359] dark:text-[#E5B869] hover:underline font-medium flex items-center gap-1"
+                >
+                  <span>📜 推薦アーカイヴ</span>
+                  <span>→</span>
+                </Link>
+              </div>
             </div>
-            <div className="flex items-center gap-3 text-xs font-sans">
-              <span className="text-[11px] text-stone-500 dark:text-stone-400">
-                順位付けを行わない月刊推薦詩篇
-              </span>
-              <span className="text-stone-300 dark:text-stone-700">|</span>
-              <Link
-                href="/curation/archive"
-                className="text-[#D4A359] dark:text-[#E5B869] hover:underline font-medium flex items-center gap-1"
-              >
-                <span>📜 推薦アーカイヴ</span>
-                <span>→</span>
-              </Link>
-            </div>
-          </div>
 
-          {featuredPoems.length > 0 ? (
             <div className={`grid grid-cols-1 ${featuredPoems.length > 1 ? 'md:grid-cols-2 gap-8' : 'gap-6'}`}>
               {featuredPoems.map((poem) => (
                 <div key={poem.id} className="space-y-5 flex flex-col justify-between bg-[#FDFBF7]/80 dark:bg-[#1A1F2C]/60 p-6 rounded-lg border border-[#E5E0D8] dark:border-stone-800 shadow-sm relative">
@@ -252,27 +219,41 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-          ) : (
-            /* データ準備中・初期案内カード */
-            <div className="py-8 text-center space-y-4">
-              <h2 className="text-xl font-normal text-[#1A1F2C] dark:text-stone-100">
-                言葉の聖域へ、ようこそ
-              </h2>
-              <p className="text-xs text-stone-600 dark:text-stone-400 font-sans max-w-lg mx-auto leading-relaxed">
-                Poem pratyaya は評価や競い合いを離れ、言葉と静かに対話する場所です。<br className="hidden sm:inline" />
-                現在、最初の一篇の投ぜられる刻（とき）を静かに待っています。
-              </p>
-              <div className="pt-2">
-                <Link
-                  href="/poems/new"
-                  className="inline-block px-6 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs font-sans rounded hover:bg-stone-800 dark:hover:opacity-90 transition shadow-sm font-medium"
-                >
-                  最初の一篇を紡ぐ（月3作制限）
-                </Link>
-              </div>
+          </section>
+        ) : (
+          /* 推薦なし（初期状態）：身内褒め合いの印象を排した清らかな静寂の導入カード */
+          <section className="bg-white/90 dark:bg-[#242B3B] p-8 sm:p-12 rounded-xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-5 text-center relative overflow-hidden backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#D4A359]/10 border border-[#D4A359]/30 rounded-full text-xs text-[#D4A359] font-sans font-medium mx-auto">
+              <span>🕯️</span>
+              <span>言葉の聖域 — Poem pratyaya へようこそ</span>
             </div>
-          )}
-        </section>
+            
+            <h1 className="text-2xl sm:text-3xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
+              言葉を単なる情報から解き放ち、<br className="hidden sm:inline" />
+              静寂と良心の中で響き合わせる場所
+            </h1>
+
+            <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 font-serif max-w-2xl mx-auto leading-relaxed pt-1">
+              Poem pratyaya（ポエム・プラティヤヤ）は、SNSのようなPV数や評価の競い合いを排し、<br className="hidden sm:inline" />
+              月3作の推敲制限と、縦書きの組版・肉声の響き（Vāc）によって言葉の尊厳を守る詩的空間です。
+            </p>
+
+            <div className="pt-3 flex flex-wrap justify-center gap-3 font-sans text-xs">
+              <Link
+                href="/poems"
+                className="px-5 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded hover:opacity-90 transition shadow-sm font-medium"
+              >
+                詩篇目録を訪ねる
+              </Link>
+              <Link
+                href="/poems/new"
+                className="px-5 py-2.5 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 rounded hover:bg-stone-50 dark:hover:bg-stone-800 transition"
+              >
+                一篇を推敲・投稿する（月3作）
+              </Link>
+            </div>
+          </section>
+        )}
 
         {/* メインコンテンツ：新しく投ぜられた詩篇 */}
         <section className="space-y-6">
@@ -369,5 +350,6 @@ export default function HomePage() {
     </div>
   )
 }
+
 
 
