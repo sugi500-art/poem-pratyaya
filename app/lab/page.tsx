@@ -582,9 +582,20 @@ export default function ForumLabClient() {
 
                       <div className="pt-2 flex justify-between items-center text-[11px] font-sans text-stone-400 border-t border-stone-200/60 dark:border-stone-800">
                         <span>投稿者: {authorName}</span>
-                        <span className="text-[#D4A359] font-medium">
-                          応答 {thread.posts?.length || thread.posts_count || 0} 件
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[#D4A359] font-medium">
+                            応答 {thread.posts?.length || thread.posts_count || 0} 件
+                          </span>
+                          <Link
+                            href={`/lab/${thread.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-stone-400 hover:text-[#D4A359] transition flex items-center gap-0.5"
+                            title="このトピックの個別ページを開く"
+                          >
+                            <span>🔗</span>
+                            <span>個別 ↗</span>
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   )
@@ -610,11 +621,20 @@ export default function ForumLabClient() {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           <span>{new Date(activeThread.created_at).toLocaleDateString('ja-JP')}</span>
                           {activeThread.updated_at && activeThread.updated_at !== activeThread.created_at && (
                             <span className="text-[10px] text-stone-400">（推敲・編集済み）</span>
                           )}
+                          <span className="text-stone-300 dark:text-stone-700">|</span>
+                          <Link
+                            href={`/lab/${activeThread.id}`}
+                            className="text-stone-400 hover:text-[#D4A359] transition flex items-center gap-1 font-medium"
+                            title="この対話の個別ページ・共有リンクを開く"
+                          >
+                            <span>🔗</span>
+                            <span>個別ページ ↗</span>
+                          </Link>
                         </div>
 
                         {currentUser && activeThread.author_id === currentUser.id && (
@@ -965,4 +985,5 @@ export default function ForumLabClient() {
     </div>
   )
 }
+
 
