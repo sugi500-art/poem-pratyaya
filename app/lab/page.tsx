@@ -124,6 +124,9 @@ export default function ForumLabClient() {
   const [replyEthicsAgreed, setReplyEthicsAgreed] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // URLコピー状態
+  const [copiedThreadId, setCopiedThreadId] = useState<string | null>(null)
+
   // スマホ用表示切替
   const [mobileView, setMobileView] = useState<'list' | 'detail'>('list')
 
@@ -335,6 +338,17 @@ export default function ForumLabClient() {
     } finally {
       setIsSavingPost(false)
     }
+  }
+
+  // トピックURLのコピー処理
+  const handleCopyThreadUrl = (threadId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    if (typeof window === 'undefined') return
+    const origin = window.location.origin
+    const url = `${origin}/lab/${threadId}`
+    navigator.clipboard.writeText(url)
+    setCopiedThreadId(threadId)
+    setTimeout(() => setCopiedThreadId(null), 2500)
   }
 
   // スレッド削除 (Supabase)
@@ -586,15 +600,25 @@ export default function ForumLabClient() {
                           <span className="text-[#D4A359] font-medium">
                             応答 {thread.posts?.length || thread.posts_count || 0} 件
                           </span>
-                          <Link
-                            href={`/lab/${thread.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-stone-400 hover:text-[#D4A359] transition flex items-center gap-0.5"
-                            title="このトピックの個別ページを開く"
-                          >
-                            <span>🔗</span>
-                            <span>個別 ↗</span>
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => handleCopyThreadUrl(thread.id, e)}
+                              className="text-stone-400 hover:text-[#D4A359] transition flex items-center gap-0.5 text-[10px]"
+                              title="トピックURLをコピー"
+                            >
+                              <span>{copiedThreadId === thread.id ? "✓" : "🔗"}</span>
+                              <span>{copiedThreadId === thread.id ? "コピー済" : "URLコピー"}</span>
+                            </button>
+                            <span className="text-stone-300 dark:text-stone-700">|</span>
+                            <Link
+                              href={`/lab/${thread.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-stone-400 hover:text-[#D4A359] transition flex items-center gap-0.5"
+                              title="このトピックの個別ページを開く"
+                            >
+                              <span>個別 ↗</span>
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -627,13 +651,20 @@ export default function ForumLabClient() {
                             <span className="text-[10px] text-stone-400">（推敲・編集済み）</span>
                           )}
                           <span className="text-stone-300 dark:text-stone-700">|</span>
+                          <button
+                            onClick={() => handleCopyThreadUrl(activeThread.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-[#1E2533] border border-[#E2DDD5] dark:border-stone-700 rounded text-[11px] font-sans text-stone-700 dark:text-stone-300 hover:border-[#D4A359] hover:text-[#D4A359] transition shadow-2xs font-medium"
+                            title="この対話の共有URLをコピー"
+                          >
+                            <span>{copiedThreadId === activeThread.id ? "✓" : "🔗"}</span>
+                            <span>{copiedThreadId === activeThread.id ? "コピー完了！" : "URLコピー"}</span>
+                          </button>
                           <Link
                             href={`/lab/${activeThread.id}`}
-                            className="text-stone-400 hover:text-[#D4A359] transition flex items-center gap-1 font-medium"
-                            title="この対話の個別ページ・共有リンクを開く"
+                            className="text-stone-400 hover:text-[#D4A359] transition flex items-center gap-0.5 font-medium text-[11px]"
+                            title="この対話の個別ページを開く"
                           >
-                            <span>🔗</span>
-                            <span>個別ページ ↗</span>
+                            <span>個別 ↗</span>
                           </Link>
                         </div>
 
@@ -716,6 +747,26 @@ export default function ForumLabClient() {
 
                         <div className="p-6 bg-[#FBF9F5] dark:bg-[#1A1F2C] rounded-lg border border-[#E2DDD5] dark:border-stone-800 text-sm sm:text-base leading-relaxed text-stone-800 dark:text-stone-200 font-serif whitespace-pre-wrap">
                           {activeThread.content}
+                        </div>
+
+                        {/* 対話・書評の灯火を手渡す共有バナー */}
+                        <div className="p-4 sm:p-5 bg-[#F4F0E8]/70 dark:bg-[#1E2533]/70 rounded-xl border border-[#E2DDD5] dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-4 font-sans text-xs">
+                          <div className="space-y-0.5 text-center sm:text-left">
+                            <p className="font-medium text-[#1A1F2C] dark:text-stone-200 flex items-center gap-1.5 justify-center sm:justify-start">
+                              <span>🕯️</span>
+                              <span>この対話・書評の灯火を他者へ手渡す</span>
+                            </p>
+                            <p className="text-stone-500 dark:text-stone-400 text-[11px]">
+                              書評の対象者や、言葉の思索を深め合いたい方へ直接リンクを届けることができます。
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleCopyThreadUrl(activeThread.id)}
+                            className="px-4 py-2 bg-white dark:bg-[#242B3B] border border-[#E2DDD5] dark:border-stone-700 rounded-lg text-stone-700 dark:text-stone-200 hover:border-[#D4A359] hover:text-[#D4A359] transition font-medium flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer"
+                          >
+                            <span>{copiedThreadId === activeThread.id ? "✓" : "🔗"}</span>
+                            <span>{copiedThreadId === activeThread.id ? "コピー完了！🕯️" : "トピックURLをコピー"}</span>
+                          </button>
                         </div>
                       </>
                     )}
@@ -985,5 +1036,6 @@ export default function ForumLabClient() {
     </div>
   )
 }
+
 
 
