@@ -5,7 +5,7 @@ import Footer from '@/components/Footer'
 import './globals.css'
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://あなたのVercelのURL.vercel.app'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://poem-pratyaya.com/'),
   title: 'Poem pratyaya | 言語と対話の聖域',
   description: '勝敗や優劣を離れ、言葉の響きと思索を深める詩的対話プラットフォーム',
 }
