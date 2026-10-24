@@ -93,25 +93,26 @@ export async function generateAuthorMetadata(username: string): Promise<Metadata
   }
 }
 
-/* 
- * ============================================================
- * 2. 詩篇詳細ページ用 OGP メタデータ生成
- * ============================================================
- */
+/* components/profile_meta_config.tsx の中身 */
+
+// 詩篇詳細ページ用 OGP メタデータ生成
 export async function generatePoemMetadata(poemId: string): Promise<Metadata> {
   const poem = await getPoemData(poemId)
 
   const poemTitle = poem?.title ? `『${poem.title}』` : '詩篇'
   const authorName = (poem as any)?.profiles?.display_name || (poem as any)?.profiles?.username || '無名の表現者'
   
-  // 詩の冒頭文抜粋（SNSプレビュー用）
   const contentSnippet = poem?.content
     ? poem.content.replace(/\n+/g, ' ').slice(0, 95) + (poem.content.length > 95 ? '...' : '')
     : '言葉の聖域 Poem pratyaya で公開されている詩篇です。'
 
   const pageTitle = `${poemTitle} — 詩人：${authorName} | Poem pratyaya`
 
+  // ★ ここで完全な絶対URLを明示します
+  const ogpImageUrl = '[suspicious link removed]'
+
   return {
+    metadataBase: new URL('[suspicious link removed]'),
     title: pageTitle,
     description: contentSnippet,
     openGraph: {
@@ -122,7 +123,7 @@ export async function generatePoemMetadata(poemId: string): Promise<Metadata> {
       type: 'article',
       images: [
         {
-          url: '/ogp-poem.png',
+          url: ogpImageUrl, // ★ 完全なURL
           width: 1200,
           height: 630,
           alt: `${poemTitle} - Poem pratyaya`,
@@ -133,7 +134,7 @@ export async function generatePoemMetadata(poemId: string): Promise<Metadata> {
       card: 'summary_large_image',
       title: `${poemTitle} （詩人：${authorName}）`,
       description: contentSnippet,
-      images: ['/ogp-poem.png'],
+      images: [ogpImageUrl], // ★ 完全なURL
     },
   }
 }
