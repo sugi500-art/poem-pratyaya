@@ -1,8 +1,6 @@
 import type { Metadata } from 'next'
-
-// app/layout.tsx の metadata 設定用リファレンス
-// この設定を入れておくことで、サイト全体のどのページがシェアされても
-// 常に「Poem pratyaya」の蝋燭のOGP画像（大きなカード）が美しく表示されます。
+import Header from '@/components/Header'
+import './globals.css'
 
 const DOMAIN = 'poem-pratyaya.com'
 const SITE_URL = `https://${DOMAIN}`
@@ -35,3 +33,19 @@ export const metadata: Metadata = {
     images: [OGP_IMAGE],
   },
 }
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="ja">
+      <body className="bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] min-h-screen antialiased">
+        <Header />
+        {children}
+      </body>
+    </html>
+  )
+}
+
