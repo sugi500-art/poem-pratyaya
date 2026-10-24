@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
+export interface ForumCategory {
   id: string
   slug: string
   name: string
@@ -689,3 +690,4 @@ export default function ThreadDetailClient({ threadId }: { threadId: string }) {
     </div>
   )
 }
+
