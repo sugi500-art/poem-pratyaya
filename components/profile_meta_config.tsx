@@ -49,8 +49,13 @@ const getPoemData = cache(async (poemId: string) => {
   return poem
 })
 
+/* 
+ * ============================================================
+ * 1. 著者（参加者）プロフィール用 OGP メタデータ生成
+ * ============================================================
+ */
 export async function generateAuthorMetadata(username: string): Promise<Metadata> {
-  const targetKey = decodeURIComponent(username).replace(/^%40|^\@/, '')
+  const targetKey = decodeURIComponent(username).replace(/^%40|^@/, '')
   const profile = await getProfileData(targetKey)
 
   const displayName = profile?.display_name || profile?.username || targetKey || '詩人'
@@ -90,15 +95,21 @@ export async function generateAuthorMetadata(username: string): Promise<Metadata
   }
 }
 
+/* 
+ * ============================================================
+ * 2. 詩篇詳細ページ用 OGP メタデータ生成
+ * ============================================================
+ */
 export async function generatePoemMetadata(poemId: string): Promise<Metadata> {
   const poem = await getPoemData(poemId)
 
   const poemTitle = poem?.title ? `『${poem.title}』` : '詩篇'
   const authorName = (poem as any)?.profiles?.display_name || (poem as any)?.profiles?.username || '無名の表現者'
   
-  const contentSnippet = poem?.content
-    ? poem.content.replace(/
-+/g, ' ').slice(0, 95) + (poem.content.length > 95 ? '...' : '')
+  // 詩の冒頭文抜粋（SNSプレビュー用: 改行をスペースに変換）
+  const rawContent = poem?.content || ''
+  const contentSnippet = rawContent
+    ? rawContent.split('\n').join(' ').replace(/ +/g, ' ').trim().slice(0, 95) + (rawContent.length > 95 ? '...' : '')
     : '言葉の聖域 Poem pratyaya で公開されている詩篇です。'
 
   const pageTitle = `${poemTitle} — 詩人：${authorName} | Poem pratyaya`
@@ -132,4 +143,5 @@ export async function generatePoemMetadata(poemId: string): Promise<Metadata> {
     },
   }
 }
+
 
