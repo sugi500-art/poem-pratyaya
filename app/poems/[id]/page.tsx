@@ -7,41 +7,57 @@ import PoemDetailClient from './PoemDetailClient'
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }> | { id: string }
 }): Promise<Metadata> {
-  const { id } = await params
+  const resolvedParams = await params
+  const id = resolvedParams?.id
 
-  // Supabase から作品情報と作者名を取得
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  )
+  let poemTitle = '詩篇'
+  let authorName = '表現者'
+  let contentSnippet = '言葉の尊厳と沈黙の余白を取り戻すための詩的空間。'
 
-  const { data: poem } = await supabase
-    .from('poems')
-    .select('id, title, content, profiles:author_id(display_name, username)')
-    .eq('id', id)
-    .maybeSingle()
+  if (id) {
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+      if (supabaseUrl && supabaseAnonKey) {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey)
+        const { data: poem } = await supabase
+          .from('poems')
+          .select('id, title, content, profiles:author_id(display_name, username)')
+          .eq('id', id)
+          .maybeSingle()
 
-  const poemTitle = poem?.title ? `『${poem.title}』` : '詩篇'
-  const authorName = (poem as any)?.profiles?.display_name || (poem as any)?.profiles?.username || '表現者'
-  
-  // 詩の冒頭文（改行を空白に整えて抜粋）
-  const contentSnippet = poem?.content
-    ? poem.content.replace(/\s+/g, ' ').slice(0, 95) + (poem.content.length > 95 ? '...' : '')
-    : '言葉の尊厳と沈黙の余白を取り戻すための詩的空間。'
+        if (poem) {
+          if (poem.title) poemTitle = `『${poem.title}』`
+          const prof = (poem as any).profiles
+          if (prof?.display_name || prof?.username) {
+            authorName = prof.display_name || prof.username
+          }
+          if (poem.content) {
+            contentSnippet = poem.content.replace(/\s+/g, ' ').trim().slice(0, 95)
+            if (poem.content.length > 95) contentSnippet += '...'
+          }
+        }
+      }
+    } catch (e) {
+      console.error('generateMetadata error:', e)
+    }
+  }
 
   const fullTitle = `${poemTitle} （詩人：${authorName}） | Poem pratyaya`
-  const ogpImageUrl = '[suspicious link removed]'
+  const domain = 'poem-pratyaya.com'
+  const ogpImageUrl = `https://${domain}/ogp-poem.png`
+  const pageUrl = `https://${domain}/poems/${id}`
 
   return {
-    metadataBase: new URL('https://poem-pratyaya.com'),
+    metadataBase: new URL(`https://${domain}`),
     title: fullTitle,
     description: contentSnippet,
     openGraph: {
       title: fullTitle,
       description: contentSnippet,
-      url: `[suspicious link removed]{id}`,
+      url: pageUrl,
       siteName: 'Poem pratyaya',
       locale: 'ja_JP',
       type: 'article',
@@ -63,20 +79,20 @@ export async function generateMetadata({
   }
 }
 
-// Suspense の内側で params (Promise) を解凍して Client コンポーネントへ渡す
+// Suspense の内側で params を解凍して Client コンポーネントへ渡す
 async function PoemDetailContent({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }> | { id: string }
 }) {
-  const { id } = await params
-  return <PoemDetailClient poemId={id} />
+  const resolvedParams = await params
+  return <PoemDetailClient poemId={resolvedParams.id} />
 }
 
 export default function Page({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }> | { id: string }
 }) {
   return (
     <Suspense
@@ -95,3 +111,4 @@ export default function Page({
     </Suspense>
   )
 }
+
