@@ -91,20 +91,28 @@ const DEFAULT_CATEGORIES: ForumCategory[] = [
 export default function ThreadDetailClient({ threadId }: { threadId: string }) {
   const router = useRouter()
   const [hasMounted, setHasMounted] = useState(false)
-  const [thread, setThread] = useState<ForumThread | null>(null)
   const [categories, setCategories] = useState<ForumCategory[]>(DEFAULT_CATEGORIES)
+  const [thread, setThread] = useState<ForumThread | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  // ユーザー状態
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
-  const [copied, setCopied] = useState(false)
+
+  // スレッド編集状態
   const [isEditingThread, setIsEditingThread] = useState(false)
   const [editThreadTitle, setEditThreadTitle] = useState("")
   const [editThreadContent, setEditThreadContent] = useState("")
   const [isSavingThread, setIsSavingThread] = useState(false)
+
+  // 投稿（返信）編集状態
   const [editingPostId, setEditingPostId] = useState<string | null>(null)
   const [editPostContent, setEditPostContent] = useState("")
   const [isSavingPost, setIsSavingPost] = useState(false)
+
+  // 新規返信
   const [replyContent, setReplyContent] = useState("")
   const [replyEthicsAgreed, setReplyEthicsAgreed] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -182,6 +190,7 @@ export default function ThreadDetailClient({ threadId }: { threadId: string }) {
     }
   }
 
+  // トピックURLのコピー
   const handleCopyLink = () => {
     if (typeof window === "undefined") return
     const url = window.location.href.split("?")[0]
@@ -190,6 +199,7 @@ export default function ThreadDetailClient({ threadId }: { threadId: string }) {
     setTimeout(() => setCopied(false), 2500)
   }
 
+  // スレッド更新（推敲・編集）
   const handleUpdateThread = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!thread || !editThreadTitle.trim() || !editThreadContent.trim() || !currentUser) return
@@ -219,6 +229,7 @@ export default function ThreadDetailClient({ threadId }: { threadId: string }) {
     }
   }
 
+  // スレッド削除
   const handleDeleteThread = async (targetId: string) => {
     if (!confirm("この対話スレッドを削除しますか？返信応答もすべて削除されます。")) return
 
@@ -237,27 +248,28 @@ export default function ThreadDetailClient({ threadId }: { threadId: string }) {
     }
   }
 
+  // 返信・応答の送信
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!activeThreadId || !replyContent.trim() || !replyEthicsAgreed || !currentUser) return
+    if (!thread || !replyContent.trim() || !replyEthicsAgreed || !currentUser) return
 
     try {
       setIsSubmitting(true)
       const { error: insertError } = await supabase
-        .from('forum_posts')
+        .from("forum_posts")
         .insert({
-          thread_id: activeThreadId,
+          thread_id: thread.id,
           author_id: currentUser.id,
           content: replyContent.trim(),
         })
 
       if (insertError) throw insertError
 
-      setReplyContent('')
+      setReplyContent("")
       setReplyEthicsAgreed(false)
-      await fetchThreads()
+      await loadThreadData()
     } catch (err: any) {
-      alert('応答の送信に失敗しました: ' + (err.message || 'エラーが発生しました'))
+      alert("応答の送信に失敗しました: " + (err.message || "エラーが発生しました"))
     } finally {
       setIsSubmitting(false)
     }
@@ -272,66 +284,44 @@ export default function ThreadDetailClient({ threadId }: { threadId: string }) {
       const nowIso = new Date().toISOString()
 
       const { error: updateError } = await supabase
-        .from('forum_posts')
+        .from("forum_posts")
         .update({
           content: editPostContent.trim(),
           is_edited: true,
           updated_at: nowIso,
         })
-        .eq('id', postId)
-        .eq('author_id', currentUser.id)
+        .eq("id", postId)
+        .eq("author_id", currentUser.id)
 
       if (updateError) throw updateError
 
       setEditingPostId(null)
-      setEditPostContent('')
-      await fetchThreads()
+      setEditPostContent("")
+      await loadThreadData()
     } catch (err: any) {
-      alert('応答の更新に失敗しました: ' + (err.message || 'エラーが発生しました'))
+      alert("応答の更新に失敗しました: " + (err.message || "エラーが発生しました"))
     } finally {
       setIsSavingPost(false)
     }
   }
 
-  // スレッド削除 (Supabase)
-  const handleDeleteThread = async (threadId: string) => {
-    if (!confirm('この対話スレッドを削除しますか？返信応答もすべて削除されます。')) return
-
-    try {
-      const { error: deleteError } = await supabase
-        .from('forum_threads')
-        .delete()
-        .eq('id', threadId)
-
-      if (deleteError) throw deleteError
-
-      if (activeThreadId === threadId) {
-        setActiveThreadId(null)
-      }
-      await fetchThreads()
-    } catch (err: any) {
-      alert('削除に失敗しました: ' + err.message)
-    }
-  }
-
-  // 返信投稿の削除 (Supabase)
+  // 返信投稿の削除
   const handleDeletePost = async (postId: string) => {
-    if (!confirm('この応答を削除しますか？')) return
+    if (!confirm("この応答を削除しますか？")) return
 
     try {
       const { error: deleteError } = await supabase
-        .from('forum_posts')
+        .from("forum_posts")
         .delete()
-        .eq('id', postId)
+        .eq("id", postId)
 
       if (deleteError) throw deleteError
 
-      await fetchThreads()
+      await loadThreadData()
     } catch (err: any) {
-      alert('削除に失敗しました: ' + err.message)
+      alert("削除に失敗しました: " + err.message)
     }
   }
-
 
   if (!hasMounted) return null
 
@@ -368,7 +358,9 @@ export default function ThreadDetailClient({ threadId }: { threadId: string }) {
   }
 
   const activeThread = thread
-  const activeThreadId = thread.id
+  const category = categories.find((c) => c.id === activeThread.category_id)
+  const authorName = activeThread.author?.display_name || activeThread.author?.username || activeThread.author_name || "無名の表現者"
+  const isThreadEdited = activeThread.updated_at && activeThread.updated_at !== activeThread.created_at
 
   return (
     <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif antialiased pb-28 selection:bg-[#D4A359]/20">
@@ -387,7 +379,7 @@ export default function ThreadDetailClient({ threadId }: { threadId: string }) {
           <div className="flex items-center gap-2.5">
             <button
               onClick={handleCopyLink}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white dark:bg-[#242B3B] border border-[#E2DDD5] dark:border-stone-700 rounded text-stone-700 dark:text-stone-200 hover:border-[#D4A359] transition shadow-2xs font-medium"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white dark:bg-[#242B3B] border border-[#E2DDD5] dark:border-stone-700 rounded text-stone-700 dark:text-stone-200 hover:border-[#D4A359] transition shadow-2xs font-medium cursor-pointer"
               title="この対話の固有URLをコピー"
             >
               <span>{copied ? "✓" : "🔗"}</span>
@@ -399,294 +391,300 @@ export default function ThreadDetailClient({ threadId }: { threadId: string }) {
 
       {/* メイン対話エリア */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-10">
-                <div className="bg-white dark:bg-[#242B3B] border border-[#E2DDD5] dark:border-stone-800 rounded-xl p-6 sm:p-8 space-y-8 shadow-sm">
-                  
-                  {/* スレッドヘッダー */}
-                  <div className="space-y-4 border-b border-[#E2DDD5] dark:border-stone-800 pb-6">
-                    <div className="flex items-center justify-between text-xs font-sans text-stone-400">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 bg-[#D4A359]/20 text-[#D4A359] rounded font-medium">
-                          {categories.find((c) => c.id === activeThread.category_id)?.name || '対話'}
-                        </span>
-                        <Link href={`/authors/${activeThread.author_id}`} className="hover:text-[#D4A359] transition font-medium text-stone-700 dark:text-stone-300">
-                          {activeThread.author?.display_name || activeThread.author?.username || activeThread.author_name || '無名'}
-                        </Link>
-                      </div>
+        <div className="bg-white dark:bg-[#242B3B] border border-[#E2DDD5] dark:border-stone-800 rounded-xl p-6 sm:p-8 space-y-8 shadow-sm">
+          
+          {/* スレッドヘッダー */}
+          <div className="space-y-4 border-b border-[#E2DDD5] dark:border-stone-800 pb-6">
+            <div className="flex items-center justify-between text-xs font-sans text-stone-400">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-[#D4A359]/20 text-[#D4A359] rounded font-medium">
+                  {category?.name || "対話"}
+                </span>
+                <Link href={`/authors/${activeThread.author_id}`} className="hover:text-[#D4A359] transition font-medium text-stone-700 dark:text-stone-300">
+                  {authorName}
+                </Link>
+              </div>
 
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5">
-                          <span>{new Date(activeThread.created_at).toLocaleDateString('ja-JP')}</span>
-                          {activeThread.updated_at && activeThread.updated_at !== activeThread.created_at && (
-                            <span className="text-[10px] text-stone-400">（推敲・編集済み）</span>
-                          )}
-                        </div>
-
-                        {currentUser && activeThread.author_id === currentUser.id && (
-                          <div className="flex items-center gap-2 pl-2 border-l border-stone-200 dark:border-stone-700">
-                            <button
-                              onClick={() => {
-                                setIsEditingThread(true)
-                                setEditThreadTitle(activeThread.title)
-                                setEditThreadContent(activeThread.content)
-                              }}
-                              className="text-stone-400 hover:text-[#D4A359] text-[11px] font-sans transition"
-                              title="スレッドの問いを推敲・編集"
-                            >
-                              ✏️ 編集
-                            </button>
-                            <button
-                              onClick={() => handleDeleteThread(activeThread.id)}
-                              className="text-stone-400 hover:text-rose-600 text-[11px] font-sans transition"
-                              title="スレッドを削除"
-                            >
-                              🗑️ 削除
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* スレッド本文 または 編集フォーム */}
-                    {isEditingThread ? (
-                      <form onSubmit={handleUpdateThread} className="space-y-4 pt-2 font-sans">
-                        <div className="space-y-1">
-                          <label className="block text-xs text-stone-600 dark:text-stone-400 font-medium">
-                            問いの題名（タイトル）
-                          </label>
-                          <input
-                            type="text"
-                            value={editThreadTitle}
-                            onChange={(e) => setEditThreadTitle(e.target.value)}
-                            className="w-full p-2.5 border border-[#E2DDD5] dark:border-stone-700 rounded bg-[#FBF9F5] dark:bg-[#1A1F2C] text-sm text-[#1A1F2C] dark:text-stone-100 font-serif focus:outline-none focus:border-[#D4A359]"
-                            required
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="block text-xs text-stone-600 dark:text-stone-400 font-medium">
-                            本文・思索の背景
-                          </label>
-                          <textarea
-                            rows={6}
-                            value={editThreadContent}
-                            onChange={(e) => setEditThreadContent(e.target.value)}
-                            className="w-full p-3 border border-[#E2DDD5] dark:border-stone-700 rounded bg-[#FBF9F5] dark:bg-[#1A1F2C] text-sm font-serif text-[#1A1F2C] dark:text-stone-100 focus:outline-none focus:border-[#D4A359] leading-relaxed"
-                            required
-                          />
-                        </div>
-
-                        <div className="flex justify-end gap-2 text-xs">
-                          <button
-                            type="button"
-                            onClick={() => setIsEditingThread(false)}
-                            className="px-4 py-1.5 text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"
-                          >
-                            キャンセル
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={isSavingThread || !editThreadTitle.trim() || !editThreadContent.trim()}
-                            className="px-5 py-1.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded font-medium hover:opacity-90 transition disabled:opacity-40"
-                          >
-                            {isSavingThread ? '保存中...' : '推敲内容を保存する'}
-                          </button>
-                        </div>
-                      </form>
-                    ) : (
-                      <>
-                        <h2 className="text-xl sm:text-2xl font-normal text-[#1A1F2C] dark:text-stone-100 leading-snug">
-                          {activeThread.title}
-                        </h2>
-
-                        <div className="p-6 bg-[#FBF9F5] dark:bg-[#1A1F2C] rounded-lg border border-[#E2DDD5] dark:border-stone-800 text-sm sm:text-base leading-relaxed text-stone-800 dark:text-stone-200 font-serif whitespace-pre-wrap">
-                          {activeThread.content}
-                        </div>
-
-                        {/* 対話・書評の灯火を手渡す共有バナー */}
-                        <div className="mt-6 p-4 sm:p-5 bg-[#F4F0E8]/70 dark:bg-[#1E2533]/70 rounded-xl border border-[#E2DDD5] dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-4 font-sans text-xs">
-                          <div className="space-y-0.5 text-center sm:text-left">
-                            <p className="font-medium text-[#1A1F2C] dark:text-stone-200 flex items-center gap-1.5 justify-center sm:justify-start">
-                              <span>🕯️</span>
-                              <span>この対話・書評の灯火を他者へ手渡す</span>
-                            </p>
-                            <p className="text-stone-500 dark:text-stone-400 text-[11px]">
-                              書評の対象者や、言葉の思索を深め合いたい方へ直接リンクを届けることができます。
-                            </p>
-                          </div>
-                          <button
-                            onClick={handleCopyLink}
-                            className="px-4 py-2 bg-white dark:bg-[#242B3B] border border-[#E2DDD5] dark:border-stone-700 rounded-lg text-stone-700 dark:text-stone-200 hover:border-[#D4A359] transition font-medium flex items-center gap-1.5 shrink-0 shadow-2xs"
-                          >
-                            <span>{copied ? "✓" : "🔗"}</span>
-                            <span>{copied ? "コピー完了！" : "トピックURLをコピー"}</span>
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* 投稿・応答一覧 */}
-                  <div className="space-y-6">
-                    <h3 className="text-xs font-sans tracking-widest text-stone-500 dark:text-stone-400 uppercase flex items-center justify-between">
-                      <span>言葉の応答（Pratyaya）</span>
-                      <span className="bg-[#EAE4D8] dark:bg-stone-800 px-2 py-0.5 rounded text-stone-600 dark:text-stone-300">
-                        {activeThread.posts?.length || 0} 件
-                      </span>
-                    </h3>
-
-                    {(!activeThread.posts || activeThread.posts.length === 0) ? (
-                      <div className="p-8 text-center bg-[#FBF9F5] dark:bg-[#1A1F2C] rounded border border-[#E2DDD5] dark:border-stone-800 text-xs font-sans text-stone-400">
-                        まだ応答はありません。静かに最初の言葉を寄せてみませんか。
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {activeThread.posts.map((post) => {
-                          const postAuthor = post.author?.display_name || post.author?.username || post.author_name || '読者'
-                          const isPostAuthor = currentUser && post.author_id === currentUser.id
-                          const isPostEdited = post.is_edited || (post.updated_at && post.updated_at !== post.created_at)
-                          const isCurrentlyEditing = editingPostId === post.id
-
-                          return (
-                            <div
-                              key={post.id}
-                              className="p-5 bg-[#F4F0E8]/50 dark:bg-[#1E2533]/80 rounded-lg border border-[#E2DDD5] dark:border-stone-800 space-y-3"
-                            >
-                              <div className="flex items-center justify-between text-xs font-sans">
-                                <Link href={`/authors/${post.author_id}`} className="font-medium text-[#1A1F2C] dark:text-stone-200 hover:text-[#D4A359] transition">
-                                  {postAuthor}
-                                </Link>
-
-                                <div className="flex items-center gap-3 text-stone-400">
-                                  <div className="flex items-center gap-1.5">
-                                    <span>{new Date(post.created_at).toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                                    {isPostEdited && (
-                                      <span className="text-[10px] text-stone-400">（編集済み）</span>
-                                    )}
-                                  </div>
-
-                                  {isPostAuthor && (
-                                    <div className="flex items-center gap-2 pl-2 border-l border-stone-200 dark:border-stone-700">
-                                      <button
-                                        onClick={() => {
-                                          setEditingPostId(post.id)
-                                          setEditPostContent(post.content)
-                                        }}
-                                        className="text-stone-400 hover:text-[#D4A359] text-[11px] transition"
-                                        title="応答を推敲・編集"
-                                      >
-                                        ✏️ 編集
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeletePost(post.id)}
-                                        className="text-stone-400 hover:text-rose-600 text-[11px] transition"
-                                        title="応答を削除"
-                                      >
-                                        🗑️ 削除
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {isCurrentlyEditing ? (
-                                <div className="space-y-3 pt-1 font-sans">
-                                  <textarea
-                                    rows={3}
-                                    value={editPostContent}
-                                    onChange={(e) => setEditPostContent(e.target.value)}
-                                    className="w-full p-3 border border-[#E2DDD5] dark:border-stone-700 rounded bg-[#FBF9F5] dark:bg-[#1A1F2C] text-sm font-serif text-[#1A1F2C] dark:text-stone-100 focus:outline-none focus:border-[#D4A359]"
-                                    required
-                                  />
-                                  <div className="flex justify-end gap-2 text-xs">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingPostId(null)
-                                        setEditPostContent('')
-                                      }}
-                                      className="px-3 py-1 text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"
-                                    >
-                                      キャンセル
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={isSavingPost || !editPostContent.trim()}
-                                      onClick={() => handleUpdatePost(post.id)}
-                                      className="px-4 py-1 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded font-medium hover:opacity-90 transition disabled:opacity-40"
-                                    >
-                                      {isSavingPost ? '保存中...' : '保存する'}
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <p className="text-sm font-serif leading-relaxed text-stone-800 dark:text-stone-200 whitespace-pre-wrap">
-                                  {post.content}
-                                </p>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 返信送信フォーム */}
-                  {currentUser ? (
-                    <form onSubmit={handleSendReply} className="pt-6 border-t border-[#E2DDD5] dark:border-stone-800 space-y-4 font-sans">
-                      <h4 className="text-xs font-medium text-stone-700 dark:text-stone-300">
-                        この問いに応答の言葉を寄せる
-                      </h4>
-
-                      <textarea
-                        rows={4}
-                        value={replyContent}
-                        onChange={(e) => setReplyContent(e.target.value)}
-                        placeholder="他者の尊厳と自己の良心を照らす言葉を添えてください..."
-                        className="w-full p-4 bg-[#FBF9F5] dark:bg-[#1A1F2C] border border-[#E2DDD5] dark:border-stone-700 rounded text-sm font-serif text-[#1A1F2C] dark:text-stone-100 focus:outline-none focus:border-[#D4A359]"
-                        disabled={isSubmitting}
-                        required
-                      />
-
-                      {/* 内省の鐘（送信直前の倫理確認） */}
-                      <div className="p-3 bg-[#F4F0E8] dark:bg-[#1E2533] rounded border border-[#E2DDD5] dark:border-stone-800 flex items-start gap-2.5">
-                        <input
-                          type="checkbox"
-                          id="ethics-reply"
-                          checked={replyEthicsAgreed}
-                          onChange={(e) => setReplyEthicsAgreed(e.target.checked)}
-                          className="mt-0.5 accent-[#D4A359] h-4 w-4"
-                          required
-                        />
-                        <label htmlFor="ethics-reply" className="text-xs text-stone-600 dark:text-stone-300 cursor-pointer select-none leading-relaxed">
-                          <span className="font-medium text-[#D4A359]">【送信直前の内省】</span> この言葉は、作品や問いの解釈を深め、他者の尊厳と良心を照らすものですか？
-                        </label>
-                      </div>
-
-                      <div className="flex justify-end">
-                        <button
-                          type="submit"
-                          disabled={isSubmitting || !replyContent.trim() || !replyEthicsAgreed}
-                          className="px-6 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs tracking-wider rounded font-medium hover:opacity-90 disabled:opacity-40 transition shadow-sm"
-                        >
-                          {isSubmitting ? '送信中...' : '応答を届ける'}
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <div className="p-6 bg-[#F4F0E8] dark:bg-[#1E2533] rounded-lg text-center space-y-3 text-xs font-sans text-stone-500">
-                      <p>応答を投稿するにはログインが必要です。</p>
-                      <Link
-                        href="/auth/login"
-                        className="inline-block px-5 py-2 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded font-medium hover:opacity-90 transition"
-                      >
-                        ログインする
-                      </Link>
-                    </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span>{new Date(activeThread.created_at).toLocaleDateString("ja-JP")}</span>
+                  {isThreadEdited && (
+                    <span className="text-[10px] text-stone-400">（推敲・編集済み）</span>
                   )}
-
+                  <span className="text-stone-300 dark:text-stone-700">|</span>
+                  <button
+                    onClick={handleCopyLink}
+                    className="text-stone-400 hover:text-[#D4A359] transition flex items-center gap-1 font-medium text-[11px] cursor-pointer"
+                    title="このトピックのURLをコピー"
+                  >
+                    <span>{copied ? "✓" : "🔗"}</span>
+                    <span>{copied ? "コピー済" : "URLコピー"}</span>
+                  </button>
                 </div>
 
+                {currentUser && activeThread.author_id === currentUser.id && (
+                  <div className="flex items-center gap-2 pl-2 border-l border-stone-200 dark:border-stone-700">
+                    <button
+                      onClick={() => {
+                        setIsEditingThread(true)
+                        setEditThreadTitle(activeThread.title)
+                        setEditThreadContent(activeThread.content)
+                      }}
+                      className="text-stone-400 hover:text-[#D4A359] text-[11px] font-sans transition cursor-pointer"
+                      title="スレッドの問いを推敲・編集"
+                    >
+                      ✏️ 編集
+                    </button>
+                    <button
+                      onClick={() => handleDeleteThread(activeThread.id)}
+                      className="text-stone-400 hover:text-rose-600 text-[11px] font-sans transition cursor-pointer"
+                      title="スレッドを削除"
+                    >
+                      🗑️ 削除
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* スレッド本文 または 編集フォーム */}
+            {isEditingThread ? (
+              <form onSubmit={handleUpdateThread} className="space-y-4 pt-2 font-sans">
+                <div className="space-y-1">
+                  <label className="block text-xs text-stone-600 dark:text-stone-400 font-medium">
+                    問いの題名（タイトル）
+                  </label>
+                  <input
+                    type="text"
+                    value={editThreadTitle}
+                    onChange={(e) => setEditThreadTitle(e.target.value)}
+                    className="w-full p-2.5 border border-[#E2DDD5] dark:border-stone-700 rounded bg-[#FBF9F5] dark:bg-[#1A1F2C] text-sm text-[#1A1F2C] dark:text-stone-100 font-serif focus:outline-none focus:border-[#D4A359]"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs text-stone-600 dark:text-stone-400 font-medium">
+                    本文・思索の背景
+                  </label>
+                  <textarea
+                    rows={6}
+                    value={editThreadContent}
+                    onChange={(e) => setEditThreadContent(e.target.value)}
+                    className="w-full p-3 border border-[#E2DDD5] dark:border-stone-700 rounded bg-[#FBF9F5] dark:bg-[#1A1F2C] text-sm font-serif text-[#1A1F2C] dark:text-stone-100 focus:outline-none focus:border-[#D4A359] leading-relaxed"
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingThread(false)}
+                    className="px-4 py-1.5 text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingThread || !editThreadTitle.trim() || !editThreadContent.trim()}
+                    className="px-5 py-1.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded font-medium hover:opacity-90 transition disabled:opacity-40 cursor-pointer"
+                  >
+                    {isSavingThread ? "保存中..." : "推敲内容を保存する"}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <h1 className="text-xl sm:text-2xl font-normal text-[#1A1F2C] dark:text-stone-100 leading-snug">
+                  {activeThread.title}
+                </h1>
+
+                <div className="p-6 bg-[#FBF9F5] dark:bg-[#1A1F2C] rounded-lg border border-[#E2DDD5] dark:border-stone-800 text-sm sm:text-base leading-relaxed text-stone-800 dark:text-stone-200 font-serif whitespace-pre-wrap">
+                  {activeThread.content}
+                </div>
+
+                {/* 対話・書評の灯火を手渡す共有バナー */}
+                <div className="p-4 sm:p-5 bg-[#F4F0E8]/70 dark:bg-[#1E2533]/70 rounded-xl border border-[#E2DDD5] dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-4 font-sans text-xs">
+                  <div className="space-y-0.5 text-center sm:text-left">
+                    <p className="font-medium text-[#1A1F2C] dark:text-stone-200 flex items-center gap-1.5 justify-center sm:justify-start">
+                      <span>🕯️</span>
+                      <span>この対話・書評の灯火を他者へ手渡す</span>
+                    </p>
+                    <p className="text-stone-500 dark:text-stone-400 text-[11px]">
+                      書評の対象者や、言葉の思索を深め合いたい方へ直接リンクを届けることができます。
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCopyLink}
+                    className="px-4 py-2 bg-white dark:bg-[#242B3B] border border-[#E2DDD5] dark:border-stone-700 rounded-lg text-stone-700 dark:text-stone-200 hover:border-[#D4A359] hover:text-[#D4A359] transition font-medium flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer"
+                  >
+                    <span>{copied ? "✓" : "🔗"}</span>
+                    <span>{copied ? "コピー完了！🕯️" : "トピックURLをコピー"}</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* 投稿・応答一覧 */}
+          <div className="space-y-6">
+            <h3 className="text-xs font-sans tracking-widest text-stone-500 dark:text-stone-400 uppercase flex items-center justify-between">
+              <span>言葉の応答（Pratyaya）</span>
+              <span className="bg-[#EAE4D8] dark:bg-stone-800 px-2 py-0.5 rounded text-stone-600 dark:text-stone-300">
+                {activeThread.posts?.length || 0} 件
+              </span>
+            </h3>
+
+            {(!activeThread.posts || activeThread.posts.length === 0) ? (
+              <div className="p-8 text-center bg-[#FBF9F5] dark:bg-[#1A1F2C] rounded border border-[#E2DDD5] dark:border-stone-800 text-xs font-sans text-stone-400">
+                まだ応答はありません。静かに最初の言葉を寄せてみませんか。
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {activeThread.posts.map((post) => {
+                  const postAuthor = post.author?.display_name || post.author?.username || post.author_name || "読者"
+                  const isPostAuthor = currentUser && post.author_id === currentUser.id
+                  const isPostEdited = post.is_edited || (post.updated_at && post.updated_at !== post.created_at)
+                  const isCurrentlyEditing = editingPostId === post.id
+
+                  return (
+                    <div
+                      key={post.id}
+                      className="p-5 bg-[#F4F0E8]/50 dark:bg-[#1E2533]/80 rounded-lg border border-[#E2DDD5] dark:border-stone-800 space-y-3"
+                    >
+                      <div className="flex items-center justify-between text-xs font-sans">
+                        <Link href={`/authors/${post.author_id}`} className="font-medium text-[#1A1F2C] dark:text-stone-200 hover:text-[#D4A359] transition">
+                          {postAuthor}
+                        </Link>
+
+                        <div className="flex items-center gap-3 text-stone-400">
+                          <div className="flex items-center gap-1.5">
+                            <span>{new Date(post.created_at).toLocaleString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                            {isPostEdited && (
+                              <span className="text-[10px] text-stone-400">（編集済み）</span>
+                            )}
+                          </div>
+
+                          {isPostAuthor && (
+                            <div className="flex items-center gap-2 pl-2 border-l border-stone-200 dark:border-stone-700">
+                              <button
+                                onClick={() => {
+                                  setEditingPostId(post.id)
+                                  setEditPostContent(post.content)
+                                }}
+                                className="text-stone-400 hover:text-[#D4A359] text-[11px] transition cursor-pointer"
+                                title="応答を編集"
+                              >
+                                ✏️ 編集
+                              </button>
+                              <button
+                                onClick={() => handleDeletePost(post.id)}
+                                className="text-stone-400 hover:text-rose-600 text-[11px] transition cursor-pointer"
+                                title="応答を削除"
+                              >
+                                🗑️ 削除
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {isCurrentlyEditing ? (
+                        <div className="space-y-3 pt-1 font-sans">
+                          <textarea
+                            rows={4}
+                            value={editPostContent}
+                            onChange={(e) => setEditPostContent(e.target.value)}
+                            className="w-full p-3 bg-white dark:bg-[#1A1F2C] border border-[#E2DDD5] dark:border-stone-700 rounded text-sm font-serif text-[#1A1F2C] dark:text-stone-100 focus:outline-none focus:border-[#D4A359] leading-relaxed"
+                            required
+                          />
+                          <div className="flex justify-end gap-2 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => setEditingPostId(null)}
+                              className="px-3 py-1 text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer"
+                            >
+                              キャンセル
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdatePost(post.id)}
+                              disabled={isSavingPost || !editPostContent.trim()}
+                              className="px-4 py-1 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded font-medium hover:opacity-90 transition disabled:opacity-40 cursor-pointer"
+                            >
+                              {isSavingPost ? "保存中..." : "応答を更新する"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm font-serif leading-relaxed text-stone-800 dark:text-stone-200 whitespace-pre-wrap">
+                          {post.content}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 返信送信フォーム */}
+          {currentUser ? (
+            <form onSubmit={handleSendReply} className="pt-6 border-t border-[#E2DDD5] dark:border-stone-800 space-y-4 font-sans">
+              <h4 className="text-xs font-medium text-stone-700 dark:text-stone-300">
+                この問いに応答の言葉を寄せる
+              </h4>
+
+              <textarea
+                rows={4}
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                placeholder="他者の尊厳と自己の良心を照らす言葉を添えてください..."
+                className="w-full p-4 bg-[#FBF9F5] dark:bg-[#1A1F2C] border border-[#E2DDD5] dark:border-stone-700 rounded text-sm font-serif text-[#1A1F2C] dark:text-stone-100 focus:outline-none focus:border-[#D4A359]"
+                disabled={isSubmitting}
+                required
+              />
+
+              {/* 内省の鐘（送信直前の倫理確認） */}
+              <div className="p-3 bg-[#F4F0E8] dark:bg-[#1E2533] rounded border border-[#E2DDD5] dark:border-stone-800 flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  id="ethics-reply-thread"
+                  checked={replyEthicsAgreed}
+                  onChange={(e) => setReplyEthicsAgreed(e.target.checked)}
+                  className="mt-0.5 accent-[#D4A359] h-4 w-4 cursor-pointer"
+                  required
+                />
+                <label htmlFor="ethics-reply-thread" className="text-xs text-stone-600 dark:text-stone-300 cursor-pointer select-none leading-relaxed">
+                  <span className="font-medium text-[#D4A359]">【送信直前の内省】</span> この言葉は、作品や問いの解釈を深め、他者の尊厳と良心を照らすものですか？
+                </label>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !replyContent.trim() || !replyEthicsAgreed}
+                  className="px-6 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-xs tracking-wider rounded font-medium hover:opacity-90 disabled:opacity-40 transition shadow-sm cursor-pointer"
+                >
+                  {isSubmitting ? "送信中..." : "応答を届ける"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="p-6 bg-[#F4F0E8] dark:bg-[#1E2533] rounded-lg text-center space-y-3 text-xs font-sans text-stone-500">
+              <p>応答を投稿するにはログインが必要です。</p>
+              <Link
+                href="/auth/login"
+                className="inline-block px-5 py-2 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded font-medium hover:opacity-90 transition"
+              >
+                ログインする
+              </Link>
+            </div>
+          )}
+
+        </div>
       </main>
+
     </div>
   )
 }
