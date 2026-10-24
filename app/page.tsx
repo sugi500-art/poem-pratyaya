@@ -22,6 +22,7 @@ interface Poem {
   curator_name?: string | null
   curated_at?: string | null
   profiles?: Profile | null
+  reviews?: { id: string }[]
 }
 
 export default function HomePage() {
@@ -97,7 +98,7 @@ export default function HomePage() {
           }
         }
 
-        // 2. 新着公開詩篇を取得（6件）
+        // 2. 新着公開詩篇を取得（6件、鑑賞文の到着数も取得）
         const { data: recentData, error: recentError } = await supabase
           .from('poems')
           .select(`
@@ -107,7 +108,8 @@ export default function HomePage() {
             published_at,
             writing_mode,
             author_id,
-            profiles:author_id ( display_name, username )
+            profiles:author_id ( display_name, username ),
+            reviews:poem_reviews ( id )
           `)
           .eq('status', 'published')
           .order('published_at', { ascending: false })
@@ -309,9 +311,16 @@ export default function HomePage() {
                   </p>
                   <div className="pt-2 flex justify-between items-center text-[11px] font-sans text-stone-400 dark:text-stone-500 border-t border-stone-100 dark:border-stone-800/80">
                     <span>{new Date(poem.published_at).toLocaleDateString('ja-JP')}</span>
-                    <span className="text-[#D4A359] font-serif group-hover:underline">
-                      Pratyaya（応答）を観る
-                    </span>
+                    {poem.reviews && poem.reviews.length > 0 ? (
+                      <span className="text-[#D4A359] font-medium flex items-center gap-1 font-sans">
+                        <span>🕯️</span>
+                        <span>鑑賞文 {poem.reviews.length}篇</span>
+                      </span>
+                    ) : (
+                      <span className="text-stone-400 font-serif group-hover:text-[#D4A359] group-hover:underline">
+                        Pratyaya（応答）を観る
+                      </span>
+                    )}
                   </div>
                 </Link>
               ))}
@@ -350,6 +359,7 @@ export default function HomePage() {
     </div>
   )
 }
+
 
 
 

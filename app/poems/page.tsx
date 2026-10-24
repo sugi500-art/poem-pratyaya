@@ -22,6 +22,7 @@ interface Poem {
   published_at: string | null
   created_at: string
   author?: Profile
+  reviews?: { id: string }[]
 }
 
 export default function PoemCatalogPage() {
@@ -54,6 +55,9 @@ export default function PoemCatalogPage() {
             display_name,
             avatar_url,
             role
+          ),
+          reviews:poem_reviews (
+            id
           )
         `)
         .eq('status', 'published')
@@ -210,14 +214,28 @@ export default function PoemCatalogPage() {
                 className="bg-white/90 dark:bg-[#242B3B]/90 border border-stone-200/80 dark:border-stone-800 rounded-lg p-6 hover:border-[#D4A359]/60 dark:hover:border-[#D4A359]/60 transition shadow-sm hover:shadow-md flex flex-col justify-between space-y-4"
               >
                 <div className="space-y-3">
-                  {/* ヘッダー情報（組み方向 & 投稿日） */}
-                  <div className="flex items-center justify-between text-[11px] font-sans text-stone-500 dark:text-stone-400 border-b border-stone-100 dark:border-stone-800 pb-2">
-                    <span className="px-2 py-0.5 bg-stone-100 dark:bg-stone-800 rounded text-stone-700 dark:text-stone-300">
-                      {poem.writing_mode === 'vertical' ? '縦書き' : '横書き'}
-                    </span>
-                    <span>
-                      {poem.published_at ? new Date(poem.published_at).toLocaleDateString('ja-JP') : ''}
-                    </span>
+                  {/* ヘッダー情報（組み方向 & 投稿日 & 鑑賞文バッジ） */}
+                  <div className="flex items-center justify-between text-[11px] font-sans text-stone-500 dark:text-stone-400 border-b border-stone-100 dark:border-stone-800 pb-2 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 bg-stone-100 dark:bg-stone-800 rounded text-stone-700 dark:text-stone-300">
+                        {poem.writing_mode === 'vertical' ? '縦書き' : '横書き'}
+                      </span>
+                      <span>
+                        {poem.published_at ? new Date(poem.published_at).toLocaleDateString('ja-JP') : ''}
+                      </span>
+                    </div>
+
+                    {/* 鑑賞文（言葉の応答）数バッジ */}
+                    {poem.reviews && poem.reviews.length > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#D4A359]/15 text-[#8C621C] dark:text-[#E5B869] border border-[#D4A359]/30 rounded-full font-medium shadow-2xs">
+                        <span>🕯️</span>
+                        <span>鑑賞文 {poem.reviews.length}篇</span>
+                      </span>
+                    ) : (
+                      <span className="text-stone-400 dark:text-stone-500 text-[11px] flex items-center gap-1">
+                        <span>静寂（応答を待っています）</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* 題名 */}
@@ -258,7 +276,16 @@ export default function PoemCatalogPage() {
                 </div>
 
                 {/* 鑑賞ページへの導くボタン */}
-                <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex justify-end">
+                <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between font-sans text-xs">
+                  <span className="text-[11px] text-stone-400 dark:text-stone-500">
+                    {poem.reviews && poem.reviews.length > 0 ? (
+                      <span className="text-stone-600 dark:text-stone-300">
+                        言葉の余韻と思索が届いています
+                      </span>
+                    ) : (
+                      <span>最初の鑑賞文を寄せる</span>
+                    )}
+                  </span>
                   <Link
                     href={`/poems/${poem.id}`}
                     className="text-xs font-sans text-[#D4A359] dark:text-[#E5B869] hover:underline flex items-center gap-1 font-medium"
@@ -276,3 +303,4 @@ export default function PoemCatalogPage() {
     </div>
   )
 }
+
