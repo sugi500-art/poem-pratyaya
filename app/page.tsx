@@ -10,6 +10,11 @@ interface Profile {
   username: string | null
 }
 
+interface PoemReviewItem {
+  id: string
+  created_at?: string
+}
+
 interface Poem {
   id: string
   title: string
@@ -22,15 +27,25 @@ interface Poem {
   curator_name?: string | null
   curated_at?: string | null
   profiles?: Profile | null
-  reviews?: { id: string }[]
+  reviews?: PoemReviewItem[]
+  last_activity_time?: number
+  resurfaced_by_review?: boolean
+  latest_review_at?: string
 }
+
+const INITIAL_DISPLAY_COUNT = 12
+const LOAD_MORE_INCREMENT = 12
 
 export default function HomePage() {
   const [hasMounted, setHasMounted] = useState(false)
   const [featuredPoems, setFeaturedPoems] = useState<Poem[]>([])
-  const [recentPoems, setRecentPoems] = useState<Poem[]>([])
+  const [allPoems, setAllPoems] = useState<Poem[]>([])
+  const [visibleCount, setVisibleCount] = useState<number>(INITIAL_DISPLAY_COUNT)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const supabase = createClient()
 
   useEffect(() => {
     setHasMounted(true)
@@ -40,14 +55,12 @@ export default function HomePage() {
     if (!hasMounted) return
     let isMounted = true
 
-    async function fetchPoemsData() {
+    async function fetchInitialData() {
       try {
         setLoading(true)
         setError(null)
-        const supabase = createClient()
 
         // 1. monthly_curations テーブルから最新のアドバイザー推薦データを取得
-        // ※ 登録データがない場合は、勝手に新着作品を推薦扱いにせず、空（推薦なし）の状態を保ちます
         const { data: curationsData, error: curationError } = await supabase
           .from('monthly_curations')
           .select(`
@@ -92,13 +105,12 @@ export default function HomePage() {
             setFeaturedPoems(formattedCurations)
           }
         } else {
-          // 推薦データが存在しない場合は空配列（身内の推薦印象を排すための初期状態）
           if (isMounted) {
             setFeaturedPoems([])
           }
         }
 
-        // 2. 新着公開詩篇を取得（6件、鑑賞文の到着数も取得）
+        // 2. 新着公開詩篇（まずは最大36件取得）
         const { data: recentData, error: recentError } = await supabase
           .from('poems')
           .select(`
@@ -109,17 +121,86 @@ export default function HomePage() {
             writing_mode,
             author_id,
             profiles:author_id ( display_name, username ),
-            reviews:poem_reviews ( id )
+            reviews:poem_reviews ( id, created_at )
           `)
           .eq('status', 'published')
           .order('published_at', { ascending: false })
-          .limit(6)
+          .limit(36)
 
         if (recentError) {
           console.error('新着詩篇取得エラー:', recentError)
           if (isMounted) setError('作品の読み込みに失敗しました。時間をおいて再読み込みしてください。')
-        } else if (isMounted && recentData) {
-          setRecentPoems(recentData as unknown as Poem[])
+          return
+        }
+
+        // 3. 【案2：対話（鑑賞文）が灯った詩篇の再浮上】
+        // 直近に鑑賞文が届いた詩篇を抽出し、もし新着36件から漏れている古い名作があれば追加取得
+        let combinedPoems: any[] = recentData ? [...recentData] : []
+
+        try {
+          const { data: recentReviews } = await supabase
+            .from('poem_reviews')
+            .select('poem_id, created_at')
+            .order('created_at', { ascending: false })
+            .limit(12)
+
+          if (recentReviews && recentReviews.length > 0) {
+            const existingIds = new Set(combinedPoems.map((p) => p.id))
+            const missingPoemIds = Array.from(
+              new Set(recentReviews.map((r) => r.poem_id).filter((id) => !existingIds.has(id)))
+            )
+
+            if (missingPoemIds.length > 0) {
+              const { data: missingPoems } = await supabase
+                .from('poems')
+                .select(`
+                  id,
+                  title,
+                  content,
+                  published_at,
+                  writing_mode,
+                  author_id,
+                  profiles:author_id ( display_name, username ),
+                  reviews:poem_reviews ( id, created_at )
+                `)
+                .in('id', missingPoemIds)
+                .eq('status', 'published')
+
+              if (missingPoems && missingPoems.length > 0) {
+                combinedPoems = [...combinedPoems, ...missingPoems]
+              }
+            }
+          }
+        } catch (e) {
+          console.error('鑑賞文連動の取得スキップ:', e)
+        }
+
+        // 4. 各詩篇のアクティビティ日時（公開日 vs 最新鑑賞文日）を計算して並び替え
+        const processedPoems: Poem[] = combinedPoems.map((poem: any) => {
+          const pubTime = new Date(poem.published_at).getTime()
+          const reviewDates = (poem.reviews || [])
+            .map((r: any) => (r.created_at ? new Date(r.created_at).getTime() : 0))
+            .filter((t: number) => t > 0)
+
+          const maxReviewTime = reviewDates.length > 0 ? Math.max(...reviewDates) : 0
+          const lastActiveTime = Math.max(pubTime, maxReviewTime)
+
+          // 公開から10分以上あとに鑑賞文が届いている場合は「対話の再浮上」と認定
+          const isResurfaced = maxReviewTime > pubTime + 10 * 60 * 1000
+
+          return {
+            ...poem,
+            last_activity_time: lastActiveTime,
+            resurfaced_by_review: isResurfaced,
+            latest_review_at: maxReviewTime > 0 ? new Date(maxReviewTime).toISOString() : undefined,
+          }
+        })
+
+        // 最新の活動（新着公開 または 新しい鑑賞文）が新しい順にソート
+        processedPoems.sort((a, b) => (b.last_activity_time || 0) - (a.last_activity_time || 0))
+
+        if (isMounted) {
+          setAllPoems(processedPoems)
         }
       } catch (err) {
         console.error('データ取得中の予期せぬエラー:', err)
@@ -129,12 +210,21 @@ export default function HomePage() {
       }
     }
 
-    fetchPoemsData()
+    fetchInitialData()
 
     return () => {
       isMounted = false
     }
   }, [hasMounted])
+
+  // 「さらに言葉を辿る」クリック時
+  const handleLoadMore = () => {
+    setLoadingMore(true)
+    setTimeout(() => {
+      setVisibleCount((prev) => prev + LOAD_MORE_INCREMENT)
+      setLoadingMore(false)
+    }, 200)
+  }
 
   if (!hasMounted) {
     return (
@@ -143,6 +233,9 @@ export default function HomePage() {
       </div>
     )
   }
+
+  const visiblePoems = allPoems.slice(0, visibleCount)
+  const hasMore = visibleCount < allPoems.length
 
   return (
     <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif py-12 px-4 sm:px-6 lg:px-8 selection:bg-[#D4A359]/20 transition-colors duration-300">
@@ -257,20 +350,23 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* メインコンテンツ：新しく投ぜられた詩篇 */}
+        {/* メインコンテンツ：新しく投ぜられた詩篇 ＆ 対話の再浮上 */}
         <section className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between border-b border-stone-200/80 dark:border-stone-800 pb-3 gap-2">
             <div>
-              <h2 className="text-xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
-                新しく投ぜられた詩篇
+              <h2 className="text-xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100 flex items-center gap-2">
+                <span>新しく投ぜられた詩篇</span>
+                <span className="text-xs font-sans px-2 py-0.5 rounded-full bg-[#EAE4D8] dark:bg-stone-800 text-stone-600 dark:text-stone-400">
+                  {allPoems.length} 篇の息づかい
+                </span>
               </h2>
               <p className="text-xs text-stone-500 dark:text-stone-400 font-sans mt-1">
-                一作一作の尊厳に向き合うため、PV数や「いいね数」などの数字は表示しません。
+                一作一作の尊厳に向き合うため、PV数や「いいね数」などの数字は表示しません。新着作品および、鑑賞文（Pratyaya）が届いた詩篇が静かに立ち現れます。
               </p>
             </div>
             <Link
               href="/poems/new"
-              className="text-xs text-[#D4A359] font-sans hover:underline font-medium tracking-wide"
+              className="text-xs text-[#D4A359] font-sans hover:underline font-medium tracking-wide shrink-0"
             >
               + 詩を投稿する（月3作制限）
             </Link>
@@ -285,45 +381,99 @@ export default function HomePage() {
             <div className="bg-rose-50/80 dark:bg-rose-950/50 p-6 text-center rounded border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-sans">
               {error}
             </div>
-          ) : recentPoems.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {recentPoems.map((poem) => (
-                <Link
-                  key={poem.id}
-                  href={`/poems/${poem.id}`}
-                  className="block p-6 bg-white/90 dark:bg-[#242B3B] rounded-lg border border-stone-200/80 dark:border-stone-800 hover:border-stone-400 dark:hover:border-stone-600 hover:shadow-md transition space-y-3 group"
-                >
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-base font-medium text-[#1A1F2C] dark:text-stone-100 group-hover:text-[#D4A359] transition truncate">
-                      {poem.title}
-                    </h3>
-                    {poem.is_featured && (
-                      <span className="text-[10px] bg-[#D4A359]/20 text-[#D4A359] px-1.5 py-0.5 rounded font-sans shrink-0">
-                        推薦
+          ) : visiblePoems.length > 0 ? (
+            <div className="space-y-8">
+              {/* 詩カードグリッド（初期12件、追加読み込みで拡張） */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {visiblePoems.map((poem) => (
+                  <Link
+                    key={poem.id}
+                    href={`/poems/${poem.id}`}
+                    className="block p-6 bg-white/90 dark:bg-[#242B3B] rounded-lg border border-stone-200/80 dark:border-stone-800 hover:border-stone-400 dark:hover:border-stone-600 hover:shadow-md transition space-y-3 group"
+                  >
+                    {/* カードヘッダー */}
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-base font-medium text-[#1A1F2C] dark:text-stone-100 group-hover:text-[#D4A359] transition truncate">
+                        『{poem.title}』
+                      </h3>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {poem.is_featured && (
+                          <span className="text-[10px] bg-[#D4A359]/20 text-[#D4A359] px-1.5 py-0.5 rounded font-sans">
+                            推薦
+                          </span>
+                        )}
+                        {poem.resurfaced_by_review && (
+                          <span
+                            className="text-[10px] bg-amber-100/80 dark:bg-amber-950/60 text-[#8C621C] dark:text-[#E5B869] border border-[#D4A359]/40 rounded px-1.5 py-0.5 font-sans flex items-center gap-0.5"
+                            title="新しい鑑賞文が届き、トップへ再浮上しました"
+                          >
+                            <span>🕯️</span>
+                            <span>対話</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 詩人名 */}
+                    <p className="text-xs text-stone-500 dark:text-stone-400 font-sans">
+                      詩人：{poem.profiles?.display_name || poem.profiles?.username || '無名の表現者'}
+                    </p>
+
+                    {/* 抜粋本文 */}
+                    <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-3 font-serif whitespace-pre-wrap">
+                      {poem.content}
+                    </p>
+
+                    {/* カード下部バー（日時と鑑賞文数） */}
+                    <div className="pt-2 flex justify-between items-center text-[11px] font-sans text-stone-400 dark:text-stone-500 border-t border-stone-100 dark:border-stone-800/80">
+                      <span>
+                        {poem.resurfaced_by_review && poem.latest_review_at
+                          ? `応答: ${new Date(poem.latest_review_at).toLocaleDateString('ja-JP')}`
+                          : `公開: ${new Date(poem.published_at).toLocaleDateString('ja-JP')}`}
                       </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-stone-500 dark:text-stone-400 font-sans">
-                    {poem.profiles?.display_name || '無名の表現者'}
+
+                      {poem.reviews && poem.reviews.length > 0 ? (
+                        <span className="text-[#D4A359] font-medium flex items-center gap-1 font-sans">
+                          <span>🕯️</span>
+                          <span>鑑賞文 {poem.reviews.length}篇</span>
+                        </span>
+                      ) : (
+                        <span className="text-stone-400 font-serif group-hover:text-[#D4A359] group-hover:underline">
+                          Pratyaya（応答）を観る
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              {/* 【案1：さらに言葉を辿る（追加読み込みボタン）】 */}
+              <div className="pt-4 text-center space-y-4 font-sans">
+                {hasMore ? (
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="inline-flex items-center gap-2 px-8 py-3 bg-white/90 dark:bg-[#242B3B] border border-stone-300 dark:border-stone-700 hover:border-[#D4A359] text-stone-700 dark:text-stone-200 hover:text-[#D4A359] dark:hover:text-[#D4A359] rounded-lg text-xs font-medium transition shadow-sm active:scale-95 cursor-pointer"
+                  >
+                    <span>{loadingMore ? '静かに読み込んでいます...' : '🕯️ さらに言葉を辿る（過去の詩篇を表示）'}</span>
+                    {!loadingMore && <span>↓</span>}
+                  </button>
+                ) : allPoems.length > INITIAL_DISPLAY_COUNT ? (
+                  <p className="text-xs text-stone-400">
+                    表示中のすべての詩篇（全 {allPoems.length} 篇）を辿り終えました。
                   </p>
-                  <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-3 font-serif whitespace-pre-wrap">
-                    {poem.content}
-                  </p>
-                  <div className="pt-2 flex justify-between items-center text-[11px] font-sans text-stone-400 dark:text-stone-500 border-t border-stone-100 dark:border-stone-800/80">
-                    <span>{new Date(poem.published_at).toLocaleDateString('ja-JP')}</span>
-                    {poem.reviews && poem.reviews.length > 0 ? (
-                      <span className="text-[#D4A359] font-medium flex items-center gap-1 font-sans">
-                        <span>🕯️</span>
-                        <span>鑑賞文 {poem.reviews.length}篇</span>
-                      </span>
-                    ) : (
-                      <span className="text-stone-400 font-serif group-hover:text-[#D4A359] group-hover:underline">
-                        Pratyaya（応答）を観る
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              ))}
+                ) : null}
+
+                <div>
+                  <Link
+                    href="/poems"
+                    className="inline-flex items-center gap-1 text-xs text-stone-500 dark:text-stone-400 hover:text-[#D4A359] transition underline"
+                  >
+                    <span>すべての詩篇を検索・縦書きで味わう（詩篇アーカイヴ目録へ）</span>
+                    <span>→</span>
+                  </Link>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="bg-white/60 dark:bg-[#242B3B]/60 p-12 text-center rounded border border-stone-200/60 dark:border-stone-800 text-xs text-stone-500 dark:text-stone-400 font-sans">
@@ -359,6 +509,7 @@ export default function HomePage() {
     </div>
   )
 }
+
 
 
 
