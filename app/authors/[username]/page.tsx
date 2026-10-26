@@ -117,6 +117,10 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
   const [editDisplayName, setEditDisplayName] = useState('')
   const [editBio, setEditBio] = useState('')
   const [editAcceptMessages, setEditAcceptMessages] = useState(true)
+  const [editAvatarUrl, setEditAvatarUrl] = useState('')
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const [uploadAvatarError, setUploadAvatarError] = useState('')
+  const avatarFileInputRef = React.useRef<HTMLInputElement>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -165,6 +169,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
       setProfile(profileData as Profile)
       setEditDisplayName(profileData.display_name || '')
       setEditBio(profileData.bio || '')
+      setEditAvatarUrl(profileData.avatar_url || '')
       setEditAcceptMessages(profileData.accept_direct_messages !== false)
 
       const ownerCheck = user?.id === profileData.id
@@ -438,6 +443,70 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
     }
   }
 
+  // アイコン画像（写真・イラスト）のアップロード処理 (Supabase Storage: avatars)
+  const handleAvatarFileUpload = async (file: File) => {
+    if (!file) return
+    setUploadAvatarError('')
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || ''
+    const validExts = ['jpg', 'jpeg', 'png', 'webp', 'gif']
+    const isImage = file.type.startsWith('image/') || validExts.includes(ext)
+
+    if (!isImage) {
+      setUploadAvatarError('対応する画像形式のファイルを選択してください。（対応形式: JPG, PNG, WebP, GIF）')
+      return
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setUploadAvatarError('画像サイズが大きすぎます。2MB以下の画像を選択してください。')
+      return
+    }
+
+    try {
+      setIsUploadingAvatar(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setUploadAvatarError('画像をアップロードするにはログインが必要です。')
+        return
+      }
+
+      const timestamp = Date.now()
+      const safeExt = ext || 'jpg'
+      const filePath = `${user.id}/avatar_${timestamp}.${safeExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        })
+
+      if (uploadError) {
+        console.error('Avatar storage upload error:', uploadError)
+        throw uploadError
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+
+      setEditAvatarUrl(publicUrl)
+    } catch (err: any) {
+      console.error('アバター画像アップロードエラー:', err)
+      setUploadAvatarError(err.message || '画像のアップロードに失敗しました。')
+    } finally {
+      setIsUploadingAvatar(false)
+    }
+  }
+
+  const handleRemoveAvatar = () => {
+    setEditAvatarUrl('')
+    setUploadAvatarError('')
+    if (avatarFileInputRef.current) {
+      avatarFileInputRef.current.value = ''
+    }
+  }
+
   // プロフィール保存
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault()
@@ -452,6 +521,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
         .update({
           display_name: editDisplayName.trim() || null,
           bio: editBio.trim() || null,
+          avatar_url: editAvatarUrl.trim() || null,
           accept_direct_messages: editAcceptMessages,
           updated_at: new Date().toISOString(),
         })
@@ -463,6 +533,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
         ...prev,
         display_name: editDisplayName.trim() || null,
         bio: editBio.trim() || null,
+        avatar_url: editAvatarUrl.trim() || null,
         accept_direct_messages: editAcceptMessages,
       } : null)
 
@@ -545,10 +616,18 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
           
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
-              {/* イニシャルアイコン */}
-              <div className="w-16 h-16 rounded-full bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] flex items-center justify-center text-xl font-serif font-medium shadow-sm shrink-0">
-                {(profile.display_name || profile.username || '無').slice(0, 1)}
-              </div>
+              {/* アイコン画像またはイニシャル */}
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={profile.display_name || profile.username}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-[#D4A359]/40 dark:border-stone-700 shadow-sm shrink-0 bg-stone-100 dark:bg-stone-800"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] flex items-center justify-center text-xl font-serif font-medium shadow-sm shrink-0">
+                  {(profile.display_name || profile.username || '無').slice(0, 1)}
+                </div>
+              )}
 
               <div className="space-y-1">
                 <div className="flex items-center gap-3 flex-wrap">
@@ -639,7 +718,76 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
 
           {/* 自己紹介文（または編集フォーム） */}
           {isEditing ? (
-            <form onSubmit={handleSaveProfile} className="space-y-4 pt-4 border-t border-stone-100 dark:border-stone-800">
+            <form onSubmit={handleSaveProfile} className="space-y-5 pt-4 border-t border-stone-100 dark:border-stone-800">
+              
+              {/* アイコン画像（写真・イラスト）設定 */}
+              <div className="p-4 bg-[#FBF9F5]/70 dark:bg-[#1A1F2C]/60 rounded-lg border border-stone-200/60 dark:border-stone-800 space-y-3 font-sans">
+                <label className="block text-xs font-sans text-stone-700 dark:text-stone-300 font-medium">
+                  アイコン画像（写真・イラスト）
+                </label>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  {/* プレビュー表示 */}
+                  <div className="shrink-0">
+                    {editAvatarUrl ? (
+                      <img
+                        src={editAvatarUrl}
+                        alt="アバタープレビュー"
+                        className="w-16 h-16 rounded-full object-cover border-2 border-[#D4A359] shadow-sm bg-stone-100 dark:bg-stone-800"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-300 flex items-center justify-center text-xl font-serif font-medium border border-stone-300 dark:border-stone-700 shadow-sm">
+                        {(editDisplayName || profile.username || '無').slice(0, 1)}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="file"
+                        ref={avatarFileInputRef}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) handleAvatarFileUpload(file)
+                        }}
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        className="hidden"
+                        id="avatar-file-upload"
+                      />
+                      <button
+                        type="button"
+                        disabled={isUploadingAvatar}
+                        onClick={() => avatarFileInputRef.current?.click()}
+                        className="px-3.5 py-1.5 bg-white dark:bg-[#242B3B] border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 text-xs font-sans rounded hover:border-[#D4A359] transition shadow-sm font-medium flex items-center gap-1.5"
+                      >
+                        <span>📷</span>
+                        <span>{isUploadingAvatar ? 'アップロード中...' : editAvatarUrl ? '画像を変更する' : '写真・イラストを選択'}</span>
+                      </button>
+
+                      {editAvatarUrl && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveAvatar}
+                          className="px-3 py-1.5 text-xs font-sans text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 transition"
+                        >
+                          ✕ 解除してイニシャルに戻す
+                        </button>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] text-stone-400 font-sans leading-relaxed">
+                      ※ 対応形式: JPG, PNG, WebP, GIF（最大2MB）。作品の静けさに調和する写真やイラストをお選びいただけます。
+                    </p>
+
+                    {uploadAvatarError && (
+                      <p className="text-xs text-rose-600 dark:text-rose-400 font-sans">
+                        {uploadAvatarError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-1">
                 <label className="block text-xs font-sans text-stone-600 dark:text-stone-400">表示名（筆名）</label>
                 <input
@@ -1395,6 +1543,7 @@ export default function AuthorProfilePage({ params }: { params: Promise<{ userna
     </Suspense>
   )
 }
+
 
 
 
