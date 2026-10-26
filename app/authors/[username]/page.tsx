@@ -121,6 +121,12 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [uploadAvatarError, setUploadAvatarError] = useState('')
   const avatarFileInputRef = React.useRef<HTMLInputElement>(null)
+
+  // パスワード変更状態
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPasswordSection, setShowPasswordSection] = useState(false)
+  const [showPasswordText, setShowPasswordText] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -507,7 +513,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
     }
   }
 
-  // プロフィール保存
+  // プロフィール保存 ＆ パスワード変更
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault()
     if (!currentUser || !isOwner) return
@@ -516,6 +522,27 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
       setIsSaving(true)
       setSaveMsg(null)
 
+      let passwordChanged = false
+
+      // 1. パスワード変更の検証と適用（入力されている場合のみ）
+      if (newPassword.trim()) {
+        if (newPassword.trim().length < 6) {
+          throw new Error('新しいパスワードは6文字以上で設定してください。')
+        }
+        if (newPassword !== confirmPassword) {
+          throw new Error('確認用パスワードが一致しません。入力内容をお確かめください。')
+        }
+
+        const { error: pwdError } = await supabase.auth.updateUser({
+          password: newPassword.trim(),
+        })
+        if (pwdError) {
+          throw new Error(`パスワード更新エラー: ${pwdError.message}`)
+        }
+        passwordChanged = true
+      }
+
+      // 2. プロフィール基本情報の更新
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
@@ -537,8 +564,19 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
         accept_direct_messages: editAcceptMessages,
       } : null)
 
-      setSaveMsg({ type: 'success', text: 'プロフィールを更新しました。' })
+      const successNotice = passwordChanged
+        ? 'プロフィールと新しいパスワードを安全に更新しました 🕯️'
+        : 'プロフィールを更新しました 🕯️'
+
+      setSaveMsg({ type: 'success', text: successNotice })
+      setNewPassword('')
+      setConfirmPassword('')
+      setShowPasswordSection(false)
       setIsEditing(false)
+
+      setTimeout(() => {
+        setSaveMsg(null)
+      }, 5000)
     } catch (err: any) {
       setSaveMsg({ type: 'error', text: err.message || '更新に失敗しました。' })
     } finally {
@@ -699,7 +737,17 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
               {isOwner && !isEditing && (
                 <>
                   <button
-                    onClick={() => setIsEditing(true)}
+                    onClick={() => {
+                      setEditDisplayName(profile.display_name || '')
+                      setEditBio(profile.bio || '')
+                      setEditAvatarUrl(profile.avatar_url || '')
+                      setEditAcceptMessages(profile.accept_direct_messages !== false)
+                      setNewPassword('')
+                      setConfirmPassword('')
+                      setShowPasswordSection(false)
+                      setSaveMsg(null)
+                      setIsEditing(true)
+                    }}
                     className="px-3.5 py-2 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-sans rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition"
                   >
                     編集
@@ -715,6 +763,26 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
               )}
             </div>
           </div>
+
+          {/* プロフィール更新メッセージ（成功・エラー） */}
+          {saveMsg && (
+            <div className={`p-3 rounded-lg text-xs font-sans transition-all animate-in fade-in duration-200 ${
+              saveMsg.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800'
+                : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+            }`}>
+              <div className="flex items-center justify-between">
+                <span>{saveMsg.text}</span>
+                <button
+                  type="button"
+                  onClick={() => setSaveMsg(null)}
+                  className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 text-xs ml-3"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 自己紹介文（または編集フォーム） */}
           {isEditing ? (
@@ -826,6 +894,83 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                 </p>
               </div>
 
+              {/* パスワード変更セクション（アコーディオン式） */}
+              <div className="p-4 bg-[#FBF9F5]/70 dark:bg-[#1A1F2C]/60 rounded-lg border border-stone-200/60 dark:border-stone-800 space-y-3 font-sans">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🔑</span>
+                    <label className="text-xs font-sans text-stone-700 dark:text-stone-300 font-medium">
+                      ログイン・パスワードの変更
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordSection(!showPasswordSection)
+                      if (showPasswordSection) {
+                        setNewPassword('')
+                        setConfirmPassword('')
+                      }
+                    }}
+                    className="text-xs text-[#D4A359] hover:underline font-medium"
+                  >
+                    {showPasswordSection ? '▲ 閉じる' : '▼ パスワードを変更する'}
+                  </button>
+                </div>
+
+                {showPasswordSection && (
+                  <div className="space-y-3 pt-2 border-t border-stone-200/50 dark:border-stone-800/80 animate-in fade-in duration-200">
+                    <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
+                      新しいパスワードを設定します。変更しない場合は空欄のままで構いません。
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="block text-[11px] font-sans text-stone-600 dark:text-stone-400">
+                          新しいパスワード（6文字以上）
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPasswordText ? 'text' : 'password'}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className="w-full px-3 py-2 bg-white dark:bg-[#12161F] border border-stone-300 dark:border-stone-700 rounded text-xs font-sans focus:outline-none focus:border-[#D4A359] text-stone-800 dark:text-stone-100 pr-8"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswordText(!showPasswordText)}
+                            className="absolute right-2.5 top-2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 text-xs"
+                            title={showPasswordText ? '非表示にする' : '表示する'}
+                          >
+                            {showPasswordText ? '👁️' : '🙈'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-[11px] font-sans text-stone-600 dark:text-stone-400">
+                          新しいパスワード（確認用）
+                        </label>
+                        <input
+                          type={showPasswordText ? 'text' : 'password'}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full px-3 py-2 bg-white dark:bg-[#12161F] border border-stone-300 dark:border-stone-700 rounded text-xs font-sans focus:outline-none focus:border-[#D4A359] text-stone-800 dark:text-stone-100"
+                        />
+                      </div>
+                    </div>
+
+                    {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                      <p className="text-[11px] text-rose-500 font-sans">
+                        ※ 入力されたパスワードが一致していません。
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {saveMsg && (
                 <p className={`text-xs p-2 rounded font-sans ${saveMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'}`}>
                   {saveMsg.text}
@@ -844,7 +989,12 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsEditing(false)}
+                    onClick={() => {
+                      setIsEditing(false)
+                      setNewPassword('')
+                      setConfirmPassword('')
+                      setShowPasswordSection(false)
+                    }}
                     className="px-4 py-1.5 text-xs font-sans text-stone-500 hover:text-stone-800 dark:hover:text-stone-300"
                   >
                     キャンセル
