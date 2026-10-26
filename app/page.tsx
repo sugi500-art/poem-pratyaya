@@ -13,9 +13,12 @@ export interface Announcement {
   tagLabel: string
   title: string
   content: string
+  threadId?: string
+  postsCount?: number
+  isDynamic?: boolean
 }
 
-const ANNOUNCEMENTS: Announcement[] = [
+const DEFAULT_ANNOUNCEMENTS: Announcement[] = [
   {
     id: 'notice-20261025-auth',
     date: '2026.10.25',
@@ -86,7 +89,8 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [expandedNoticeId, setExpandedNoticeId] = useState<string | null>(ANNOUNCEMENTS[0]?.id || null)
+  const [announcements, setAnnouncements] = useState<Announcement[]>(DEFAULT_ANNOUNCEMENTS)
+  const [expandedNoticeId, setExpandedNoticeId] = useState<string | null>(DEFAULT_ANNOUNCEMENTS[0]?.id || null)
 
   const supabase = createClient()
 
@@ -245,6 +249,52 @@ export default function HomePage() {
         if (isMounted) {
           setAllPoems(processedPoems)
         }
+
+        // 5. 【案B：フォーラム（Pratyaya Lab）連動の最新公式案内を取得】
+        try {
+          const { data: annCategory } = await supabase
+            .from('forum_categories')
+            .select('id')
+            .eq('slug', 'official-announcement')
+            .maybeSingle()
+
+          if (annCategory?.id) {
+            const { data: dynamicThreads, error: annError } = await supabase
+              .from('forum_threads')
+              .select(`
+                id,
+                title,
+                content,
+                posts_count,
+                created_at,
+                updated_at
+              `)
+              .eq('category_id', annCategory.id)
+              .order('created_at', { ascending: false })
+              .limit(3)
+
+            if (!annError && dynamicThreads && dynamicThreads.length > 0) {
+              const dynamicList: Announcement[] = dynamicThreads.map((t: any) => ({
+                id: t.id,
+                date: new Date(t.created_at).toLocaleDateString('ja-JP'),
+                tag: 'important',
+                tagLabel: '公式案内',
+                title: t.title,
+                content: t.content,
+                threadId: t.id,
+                postsCount: t.posts_count || 0,
+                isDynamic: true,
+              }))
+
+              if (isMounted) {
+                setAnnouncements(dynamicList)
+                setExpandedNoticeId(dynamicList[0].id)
+              }
+            }
+          }
+        } catch (annErr) {
+          console.warn('公式案内取得スキップ（初期案内を使用）:', annErr)
+        }
       } catch (err) {
         console.error('データ取得中の予期せぬエラー:', err)
         if (isMounted) setError('予期せぬエラーが発生しました。')
@@ -393,7 +443,7 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* お知らせセクション：聖域からの便り */}
+        {/* お知らせセクション：聖域からの便り（Pratyaya Lab連動） */}
         <section className="bg-white/90 dark:bg-[#242B3B]/90 rounded-xl border border-[#E2DDD5] dark:border-stone-800 p-5 sm:p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-stone-200/60 dark:border-stone-800 pb-3">
             <div className="flex items-center gap-2">
@@ -402,13 +452,24 @@ export default function HomePage() {
                 聖域からの便り（お知らせ）
               </h2>
             </div>
-            <span className="text-[11px] font-sans text-stone-400">
-              主宰よりの公式案内
-            </span>
+            <div className="flex items-center gap-2 sm:gap-3 text-xs font-sans">
+              <span className="text-[11px] text-stone-400 hidden sm:inline">
+                主宰よりの公式案内
+              </span>
+              <span className="text-stone-300 dark:text-stone-700 hidden sm:inline">|</span>
+              <Link
+                href="/lab?category=official-announcement"
+                className="text-[#D4A359] dark:text-[#E5B869] hover:underline font-medium flex items-center gap-1 text-[11px]"
+                title="Pratyaya Labの公式案内室を開く"
+              >
+                <span>📜 Lab公式案内室へ</span>
+                <span>→</span>
+              </Link>
+            </div>
           </div>
 
           <div className="divide-y divide-stone-100 dark:divide-stone-800/80">
-            {ANNOUNCEMENTS.map((item) => {
+            {announcements.map((item) => {
               const isExpanded = expandedNoticeId === item.id
               return (
                 <div key={item.id} className="py-3 first:pt-1 last:pb-1">
@@ -443,8 +504,22 @@ export default function HomePage() {
                   </button>
 
                   {isExpanded && (
-                    <div className="mt-2.5 p-3.5 bg-[#FBF9F5] dark:bg-[#1A1F2C]/70 rounded-lg border border-stone-200/60 dark:border-stone-800/80 text-xs font-serif leading-relaxed text-stone-700 dark:text-stone-300 whitespace-pre-wrap animate-in fade-in duration-200">
-                      {item.content}
+                    <div className="mt-2.5 p-3.5 sm:p-4 bg-[#FBF9F5] dark:bg-[#1A1F2C]/70 rounded-lg border border-stone-200/60 dark:border-stone-800/80 text-xs font-serif leading-relaxed text-stone-700 dark:text-stone-300 whitespace-pre-wrap animate-in fade-in duration-200 space-y-3">
+                      <div>{item.content}</div>
+                      {item.threadId && (
+                        <div className="pt-2 border-t border-stone-200/50 dark:border-stone-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-sans">
+                          <span className="text-stone-400 text-[11px]">
+                            ※ この案内にはフォーラム（Pratyaya Lab）で対話や返信を寄せることもできます。
+                          </span>
+                          <Link
+                            href={`/lab/${item.threadId}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-[#242B3B] border border-[#D4A359]/40 hover:border-[#D4A359] text-[#8C621C] dark:text-[#E5B869] rounded transition font-medium text-[11px] shadow-2xs self-end sm:self-auto"
+                          >
+                            <span>💬 Labでこの案内の詳細・対話を見る</span>
+                            <span>({item.postsCount || 0}件) →</span>
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -612,6 +687,7 @@ export default function HomePage() {
     </div>
   )
 }
+
 
 
 

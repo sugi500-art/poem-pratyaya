@@ -51,6 +51,13 @@ export interface ForumThread {
 
 const DEFAULT_CATEGORIES: ForumCategory[] = [
   {
+    id: 'official-announcement',
+    slug: 'official-announcement',
+    name: '公式案内・主宰より（Announcements）',
+    description: '主宰者・運営からの公式なお知らせ、規約や機能の更新、聖域からの便り。',
+    display_order: 0,
+  },
+  {
     id: 'peer-review',
     slug: 'peer-review',
     name: '相互鑑賞・合評（Pratyaya Lab）',
@@ -175,6 +182,19 @@ export default function ForumLabClient() {
 
       // 3. スレッドと投稿のリアルデータ取得
       await fetchThreads()
+
+      // 4. URLパラメータ（例: /lab?category=official-announcement）の反映
+      if (typeof window !== 'undefined') {
+        const searchParams = new URLSearchParams(window.location.search)
+        const catQuery = searchParams.get('category')
+        if (catQuery) {
+          const list = catData && catData.length > 0 ? (catData as ForumCategory[]) : DEFAULT_CATEGORIES
+          const matched = list.find((c) => c.slug === catQuery || c.id === catQuery)
+          if (matched) {
+            setSelectedCategoryId(matched.id)
+          }
+        }
+      }
 
     } catch (err: any) {
       console.error('フォーラム初期データ取得エラー:', err)
@@ -575,9 +595,16 @@ export default function ForumLabClient() {
                       }`}
                     >
                       <div className="flex items-center justify-between text-[11px] font-sans text-stone-400">
-                        <span className="px-2 py-0.5 bg-[#D4A359]/15 text-[#D4A359] rounded font-medium">
-                          {category?.name || '対話'}
-                        </span>
+                        {category?.slug === 'official-announcement' || category?.id === 'official-announcement' ? (
+                          <span className="px-2 py-0.5 bg-[#D4A359]/25 text-[#8C621C] dark:text-[#E5B869] border border-[#D4A359]/40 rounded font-medium flex items-center gap-1">
+                            <span>🕯️</span>
+                            <span>公式案内</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-[#D4A359]/15 text-[#D4A359] rounded font-medium">
+                            {category?.name || '対話'}
+                          </span>
+                        )}
                         <div className="flex items-center gap-1.5">
                           <span>{new Date(thread.last_activity_at).toLocaleDateString('ja-JP')}</span>
                           {isThreadEdited && (
@@ -636,9 +663,16 @@ export default function ForumLabClient() {
                   <div className="space-y-4 border-b border-[#E2DDD5] dark:border-stone-800 pb-6">
                     <div className="flex items-center justify-between text-xs font-sans text-stone-400">
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 bg-[#D4A359]/20 text-[#D4A359] rounded font-medium">
-                          {categories.find((c) => c.id === activeThread.category_id)?.name || '対話'}
-                        </span>
+                        {categories.find((c) => c.id === activeThread.category_id)?.slug === 'official-announcement' ? (
+                          <span className="px-2.5 py-0.5 bg-[#D4A359]/25 text-[#8C621C] dark:text-[#E5B869] border border-[#D4A359]/40 rounded font-medium flex items-center gap-1 font-sans">
+                            <span>🕯️</span>
+                            <span>公式案内・主宰より</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-[#D4A359]/20 text-[#D4A359] rounded font-medium">
+                            {categories.find((c) => c.id === activeThread.category_id)?.name || '対話'}
+                          </span>
+                        )}
                         <Link href={`/authors/${activeThread.author_id}`} className="hover:text-[#D4A359] transition font-medium text-stone-700 dark:text-stone-300">
                           {activeThread.author?.display_name || activeThread.author?.username || activeThread.author_name || '無名'}
                         </Link>
@@ -966,10 +1000,22 @@ export default function ForumLabClient() {
                   onChange={(e) => setNewThreadCategory(e.target.value)}
                   className="w-full p-2.5 border border-[#E2DDD5] dark:border-stone-700 rounded bg-white dark:bg-[#242B3B] text-xs text-[#1A1F2C] dark:text-stone-100"
                 >
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
+                  {categories
+                    .filter((c) => {
+                      if (c.slug === 'official-announcement' || c.id === 'official-announcement') {
+                        return userProfile?.role === 'admin'
+                      }
+                      return true
+                    })
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
                 </select>
+                {newThreadCategory && categories.find((c) => c.id === newThreadCategory)?.slug === 'official-announcement' && (
+                  <p className="text-[11px] text-[#D4A359] dark:text-[#E5B869] mt-1 font-sans">
+                    💡 【主宰専用】このスレッドを投稿すると、トップページ（/）の「聖域からの便り」へ自動的に最新案内として連動表示されます。
+                  </p>
+                )}
               </div>
 
               <div>
@@ -1036,6 +1082,7 @@ export default function ForumLabClient() {
     </div>
   )
 }
+
 
 
 
