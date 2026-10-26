@@ -4,6 +4,48 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
+// --- お知らせデータ定義 ---
+// --- お知らせデータ定義 ---
+export interface Announcement {
+  id: string
+  date: string
+  tag: 'important' | 'update' | 'notice'
+  tagLabel: string
+  title: string
+  content: string
+}
+
+const ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: 'notice-20261025-auth',
+    date: '2026.10.25',
+    tag: 'important',
+    tagLabel: '大切なお知らせ',
+    title: '新規登録時のメール確認およびログインについて',
+    content: '現在、多数のご登録をいただいており、一部のメールアドレス（携帯キャリアメールやGmail等）において確認メールが届きにくい事象が確認されております。
+確認メールが届かない場合でも、主宰側にて順次手動で認証完了（ログイン可能化）の処理を行っておりますので、少し時間をおいてログインをお試しください。
+また、今後はメール確認なしで登録後すぐにログイン・ご利用いただけるようシステム調整を進めております。ご不便をおかけいたしますが、どうぞご安心ください。',
+  },
+  {
+    id: 'notice-20261024-features',
+    date: '2026.10.24',
+    tag: 'update',
+    tagLabel: '機能改善',
+    title: '対話トピックの固有URL（共有機能）および鑑賞文数の表示について',
+    content: 'フォーラム（Pratyaya Lab）の各対話・書評スレッドに固有のパーマリンク（URL）を付与いたしました。書評の対象者や言葉を深め合いたい方へ、敬意を持ってお知らせする際にご活用いただけます。
+また、詩篇目録およびマイページにおいて、各作品に届いた鑑賞文の数が一目でわかるよう、控えめな表示を追加いたしました。',
+  },
+  {
+    id: 'notice-20261023-rule',
+    date: '2026.10.23',
+    tag: 'notice',
+    tagLabel: 'ご案内',
+    title: '月3作の推敲制限と作品削除時の枠の取り扱いについて',
+    content: '当プラットフォームでは、言葉を消費せず一作一作を深めるため、月3作の公開制限を設けております。下書きは何作でも保存いただけます。
+なお、一度公開された作品を取り下げ（削除）された場合は、その月の公開枠が自動的に復活いたします。納得のゆくまで推敲を重ねる際にお役立てください。',
+  },
+]
+
 // --- 型定義 ---
 interface Profile {
   display_name: string | null
@@ -44,6 +86,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [expandedNoticeId, setExpandedNoticeId] = useState<string | null>(ANNOUNCEMENTS[0]?.id || null)
 
   const supabase = createClient()
 
@@ -350,6 +393,66 @@ export default function HomePage() {
           </section>
         )}
 
+        {/* お知らせセクション：聖域からの便り */}
+        <section className="bg-white/90 dark:bg-[#242B3B]/90 rounded-xl border border-[#E2DDD5] dark:border-stone-800 p-5 sm:p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-stone-200/60 dark:border-stone-800 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-base text-[#D4A359]">🕯️</span>
+              <h2 className="text-sm sm:text-base font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100 font-serif">
+                聖域からの便り（お知らせ）
+              </h2>
+            </div>
+            <span className="text-[11px] font-sans text-stone-400">
+              主宰よりの公式案内
+            </span>
+          </div>
+
+          <div className="divide-y divide-stone-100 dark:divide-stone-800/80">
+            {ANNOUNCEMENTS.map((item) => {
+              const isExpanded = expandedNoticeId === item.id
+              return (
+                <div key={item.id} className="py-3 first:pt-1 last:pb-1">
+                  <button
+                    onClick={() => setExpandedNoticeId(isExpanded ? null : item.id)}
+                    className="w-full text-left flex items-start sm:items-center justify-between gap-3 group focus:outline-none"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[11px] font-sans text-stone-400">
+                          {item.date}
+                        </span>
+                        <span
+                          className={`text-[10px] font-sans px-2 py-0.5 rounded font-medium ${
+                            item.tag === 'important'
+                              ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60'
+                              : item.tag === 'update'
+                              ? 'bg-[#D4A359]/15 text-[#8C621C] dark:text-[#E5B869] border border-[#D4A359]/30'
+                              : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
+                          }`}
+                        >
+                          {item.tagLabel}
+                        </span>
+                      </div>
+                      <span className="text-xs sm:text-sm font-serif text-[#1A1F2C] dark:text-stone-200 group-hover:text-[#D4A359] transition">
+                        {item.title}
+                      </span>
+                    </div>
+                    <span className="text-xs font-sans text-stone-400 group-hover:text-[#D4A359] transition shrink-0 ml-2">
+                      {isExpanded ? '▲ 閉じる' : '▼ 詳細'}
+                    </span>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="mt-2.5 p-3.5 bg-[#FBF9F5] dark:bg-[#1A1F2C]/70 rounded-lg border border-stone-200/60 dark:border-stone-800/80 text-xs font-serif leading-relaxed text-stone-700 dark:text-stone-300 whitespace-pre-wrap animate-in fade-in duration-200">
+                      {item.content}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+
         {/* メインコンテンツ：新しく投ぜられた詩篇 ＆ 対話の再浮上 */}
         <section className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between border-b border-stone-200/80 dark:border-stone-800 pb-3 gap-2">
@@ -509,6 +612,7 @@ export default function HomePage() {
     </div>
   )
 }
+
 
 
 
