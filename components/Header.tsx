@@ -1,17 +1,39 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+export interface NotificationItem {
+  id: string
+  user_id: string
+  actor_id: string | null
+  type: 'poem_review' | 'direct_message' | 'forum_reply' | 'official_notice' | string
+  title: string
+  content: string | null
+  link_url: string
+  is_read: boolean
+  created_at: string
+  actor?: {
+    display_name: string | null
+    username: string | null
+  } | null
+}
+
 function HeaderInner() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [unreadCount, setUnreadCount] = useState<number>(0)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  
+  const popoverRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
   const router = useRouter()
+  const supabase = createClient()
 
   // 1. テーマ状態の初期化と同期
   useEffect(() => {
@@ -31,35 +53,79 @@ function HeaderInner() {
     }
   }
 
-  // 2. 初期ロードおよび Supabase リアルタイム認証状態監視 (onAuthStateChange)
+  // ポップアップ外クリックのハンドリング
   useEffect(() => {
-    const supabase = createClient()
-
-    async function loadUserData(currentUser: any) {
-      if (currentUser) {
-        setUser(currentUser)
-        try {
-          const { data } = await supabase
-            .from('profiles')
-            .select('display_name, username, role')
-            .eq('id', currentUser.id)
-            .single()
-          setProfile(data)
-        } catch (err) {
-          console.error('プロフィール取得エラー:', err)
-        }
-      } else {
-        setUser(null)
-        setProfile(null)
+    function handleClickOutside(event: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false)
       }
     }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
-    // 初回ユーザー確認
+  // 2. ユーザーデータ ＆ お知らせ通知の取得
+  async function loadUserData(currentUser: any) {
+    if (currentUser) {
+      setUser(currentUser)
+      try {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('display_name, username, role')
+          .eq('id', currentUser.id)
+          .single()
+        setProfile(profileData)
+
+        // 通知データの取得
+        fetchNotifications(currentUser.id)
+      } catch (err) {
+        console.error('プロフィール取得エラー:', err)
+      }
+    } else {
+      setUser(null)
+      setProfile(null)
+      setNotifications([])
+      setUnreadCount(0)
+    }
+  }
+
+  // 通知一覧の取得関数
+  async function fetchNotifications(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select(`
+          id,
+          user_id,
+          actor_id,
+          type,
+          title,
+          content,
+          link_url,
+          is_read,
+          created_at,
+          actor:profiles!actor_id ( display_name, username )
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      if (!error && data) {
+        const list = data as unknown as NotificationItem[]
+        setNotifications(list)
+        setUnreadCount(list.filter((n) => !n.is_read).length)
+      }
+    } catch (e) {
+      console.error('通知取得エラー:', e)
+    }
+  }
+
+  // 初期ロードおよび Supabase リアルタイム認証監視
+  useEffect(() => {
     supabase.auth.getUser().then(({ data: { user: currentUser } }) => {
       loadUserData(currentUser)
     })
 
-    // 認証状態の変更をリアルタイム検出 (ログイン/ログアウト)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       loadUserData(session?.user || null)
     })
@@ -69,22 +135,62 @@ function HeaderInner() {
     }
   }, [])
 
-  // 3. ページ遷移時にモバイルメニューを閉じ、最新のユーザー情報を再チェック
+  // ページ遷移時にポップアップとモバイルメニューを閉じる
   useEffect(() => {
     setMobileMenuOpen(false)
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user: currentUser } }) => {
-      if (currentUser) {
-        setUser(currentUser)
-      }
-    })
+    setNotificationsOpen(false)
+    if (user) {
+      fetchNotifications(user.id)
+    }
   }, [pathname])
 
+  // 単一通知の既読化 ＆ 遷移
+  const handleNotificationClick = async (notif: NotificationItem) => {
+    setNotificationsOpen(false)
+
+    if (!notif.is_read) {
+      try {
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notif.id)
+
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n))
+        )
+        setUnreadCount((prev) => Math.max(0, prev - 1))
+      } catch (e) {
+        console.error('既読化エラー:', e)
+      }
+    }
+
+    router.push(notif.link_url)
+  }
+
+  // すべて既読にする
+  const handleMarkAllAsRead = async () => {
+    if (!user || unreadCount === 0) return
+
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+      setUnreadCount(0)
+    } catch (e) {
+      console.error('一括既読エラー:', e)
+    }
+  }
+
   const handleSignOut = async () => {
-    const supabase = createClient()
     await supabase.auth.signOut()
     setUser(null)
     setProfile(null)
+    setNotifications([])
+    setUnreadCount(0)
     setMobileMenuOpen(false)
     router.push('/')
     router.refresh()
@@ -92,6 +198,22 @@ function HeaderInner() {
 
   const displayName = profile?.display_name || profile?.username || user?.email?.split('@')[0] || '参加者'
   const isCurator = profile?.role === 'admin' || profile?.role === 'advisor'
+
+  // 通知タイプごとのアイコン判定
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'poem_review':
+        return '🌸'
+      case 'direct_message':
+        return '✉️'
+      case 'forum_reply':
+        return '💬'
+      case 'official_notice':
+        return '🕯️'
+      default:
+        return '🔔'
+    }
+  }
 
   return (
     <header className="bg-[#FBF9F5]/90 dark:bg-[#1A1F2C]/90 backdrop-blur-md border-b border-[#E2DDD5] dark:border-stone-800 sticky top-0 z-50 transition-colors">
@@ -106,7 +228,7 @@ function HeaderInner() {
         </Link>
 
         {/* デスクトップ用メニュー (md以上で表示) */}
-        <nav className="hidden md:flex items-center space-x-6 text-xs font-sans">
+        <nav className="hidden md:flex items-center space-x-5 text-xs font-sans">
           <Link href="/poems" className="text-stone-600 dark:text-stone-300 hover:text-[#D4A359] transition font-medium">
             詩篇目録
           </Link>
@@ -131,7 +253,89 @@ function HeaderInner() {
           </button>
 
           {user ? (
-            <div className="flex items-center space-x-4 pl-4 border-l border-stone-200 dark:border-stone-700">
+            <div className="flex items-center space-x-3.5 pl-4 border-l border-stone-200 dark:border-stone-700 relative" ref={popoverRef}>
+              
+              {/* 🔔 通知ベルボタン */}
+              <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="p-1.5 text-stone-600 dark:text-stone-300 hover:text-[#D4A359] transition rounded relative focus:outline-none"
+                title="通知・言葉の便り"
+                aria-label="通知ベル"
+              >
+                <span className="text-base">🔔</span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 px-1.5 py-0.2 bg-[#D4A359] text-[#1A1F2C] text-[10px] font-bold rounded-full animate-pulse shadow-xs">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* 🔔 通知ポップオーバーポップアップ */}
+              {notificationsOpen && (
+                <div className="absolute right-0 top-11 w-80 sm:w-96 bg-white dark:bg-[#242B3B] border border-stone-200 dark:border-stone-800 rounded-xl shadow-2xl py-3 px-4 z-50 font-serif space-y-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🔔</span>
+                      <h3 className="text-xs font-medium text-[#1A1F2C] dark:text-stone-100 font-sans">
+                        言葉と響きの通知
+                      </h3>
+                      {unreadCount > 0 && (
+                        <span className="px-2 py-0.2 bg-[#D4A359]/20 text-[#8C621C] dark:text-[#E5B869] text-[10px] rounded-full font-sans font-medium">
+                          {unreadCount} 件未読
+                        </span>
+                      )}
+                    </div>
+
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={handleMarkAllAsRead}
+                        className="text-[10px] font-sans text-stone-400 hover:text-[#D4A359] transition"
+                      >
+                        すべて既読にする
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800/80 pr-1">
+                    {notifications.length > 0 ? (
+                      notifications.map((notif) => (
+                        <div
+                          key={notif.id}
+                          onClick={() => handleNotificationClick(notif)}
+                          className={`py-2.5 px-2 rounded-lg transition cursor-pointer flex items-start gap-3 hover:bg-[#FBF9F5] dark:hover:bg-[#1E2533] ${
+                            !notif.is_read ? 'bg-[#FDFBF7]/80 dark:bg-[#1E2533]/80 font-medium' : 'opacity-85'
+                          }`}
+                        >
+                          <span className="text-base shrink-0 mt-0.5">
+                            {getNotificationIcon(notif.type)}
+                          </span>
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 text-[10px] font-sans text-stone-400">
+                              <span className="font-semibold text-stone-700 dark:text-stone-300 truncate">
+                                {notif.title}
+                              </span>
+                              <span className="shrink-0">{new Date(notif.created_at).toLocaleDateString('ja-JP')}</span>
+                            </div>
+                            {notif.content && (
+                              <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-2">
+                                {notif.content}
+                              </p>
+                            )}
+                          </div>
+                          {!notif.is_read && (
+                            <span className="w-2 h-2 rounded-full bg-[#D4A359] shrink-0 mt-1.5" title="未読" />
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-8 text-center text-xs font-sans text-stone-400">
+                        新しく届いた通知はありません 🕯️
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {isCurator && (
                 <Link
                   href="/curation/manage"
@@ -142,7 +346,7 @@ function HeaderInner() {
               )}
               <Link
                 href="/mypage"
-                className="text-stone-700 dark:text-stone-200 font-medium max-w-[140px] truncate hover:text-[#D4A359] transition"
+                className="text-stone-700 dark:text-stone-200 font-medium max-w-[120px] truncate hover:text-[#D4A359] transition"
                 title={`マイページ (${displayName})`}
               >
                 マイページ ({displayName})
@@ -180,6 +384,21 @@ function HeaderInner() {
 
         {/* スマホ用トグルボタン (md未満で表示) */}
         <div className="flex items-center space-x-2 md:hidden">
+          {user && (
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-1.5 text-stone-700 dark:text-stone-200 relative"
+              title="通知"
+            >
+              <span className="text-lg">🔔</span>
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 px-1.5 py-0.2 bg-[#D4A359] text-[#1A1F2C] text-[9px] font-bold rounded-full">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+          )}
+
           <button
             onClick={toggleTheme}
             className="p-1.5 text-stone-700 dark:text-stone-200 border border-stone-200 dark:border-stone-700 rounded text-sm"
@@ -205,27 +424,66 @@ function HeaderInner() {
       {mobileMenuOpen && (
         <div className="md:hidden bg-[#FBF9F5] dark:bg-[#1A1F2C] border-b border-[#E2DDD5] dark:border-stone-800 px-4 pt-3 pb-6 space-y-3 font-sans shadow-lg animate-in fade-in slide-in-from-top-2">
           {user ? (
-            <div className="p-3 bg-[#F4F0E8] dark:bg-[#242B3B] rounded-lg mb-3 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span>🕯️</span>
-                <span className="text-xs font-medium text-[#1A1F2C] dark:text-stone-100 max-w-[140px] truncate">
-                  {displayName}
-                </span>
+            <div className="space-y-3">
+              <div className="p-3 bg-[#F4F0E8] dark:bg-[#242B3B] rounded-lg flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <span>🕯️</span>
+                  <span className="text-xs font-medium text-[#1A1F2C] dark:text-stone-100 max-w-[140px] truncate">
+                    {displayName}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <Link
+                    href="/mypage"
+                    className="text-xs text-[#D4A359] font-medium hover:underline"
+                  >
+                    マイページ →
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="text-xs text-rose-600 dark:text-rose-400 hover:underline font-medium"
+                  >
+                    ログアウト
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center space-x-3">
-                <Link
-                  href="/mypage"
-                  className="text-xs text-[#D4A359] font-medium hover:underline"
-                >
-                  マイページ →
-                </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="text-xs text-rose-600 dark:text-rose-400 hover:underline font-medium"
-                >
-                  ログアウト
-                </button>
-              </div>
+
+              {/* スマホ用通知一覧 */}
+              {notifications.length > 0 && (
+                <div className="p-3 bg-white dark:bg-[#242B3B] rounded-lg border border-stone-200 dark:border-stone-800 space-y-2">
+                  <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-1.5">
+                    <span className="text-xs font-medium text-stone-700 dark:text-stone-300 flex items-center gap-1">
+                      <span>🔔</span>
+                      <span>言葉と響きの通知 ({unreadCount}件未読)</span>
+                    </span>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={handleMarkAllAsRead}
+                        className="text-[10px] text-stone-400 hover:text-[#D4A359]"
+                      >
+                        既読にする
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-2 pt-1">
+                    {notifications.slice(0, 5).map((notif) => (
+                      <div
+                        key={notif.id}
+                        onClick={() => handleNotificationClick(notif)}
+                        className={`p-2 rounded text-xs leading-relaxed flex items-start gap-2 cursor-pointer ${
+                          !notif.is_read ? 'bg-[#FDFBF7] dark:bg-[#1E2533] font-medium border-l-2 border-[#D4A359]' : 'opacity-80'
+                        }`}
+                      >
+                        <span>{getNotificationIcon(notif.type)}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-stone-800 dark:text-stone-200 truncate">{notif.title}</p>
+                          {notif.content && <p className="text-[11px] text-stone-500 line-clamp-1">{notif.content}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex justify-between items-center p-3 bg-[#F4F0E8] dark:bg-[#242B3B] rounded-lg mb-3">
@@ -309,6 +567,7 @@ export default function Header() {
     </Suspense>
   )
 }
+
 
 
 
