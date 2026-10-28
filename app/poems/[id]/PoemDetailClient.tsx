@@ -459,9 +459,20 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
             </div>
 
             <div className="text-right space-y-2">
-              <p className="text-sm font-medium text-[#1A1F2C] dark:text-stone-200">
-                <Link href={`/authors/${poem.author?.id || 'anonymous'}`} className="hover:text-[#D4A359] transition">
-                  {poem.author?.display_name || poem.author?.username || '匿名'}
+              <div className="flex items-center justify-end gap-2 text-sm font-medium text-[#1A1F2C] dark:text-stone-200">
+                <Link href={`/authors/${poem.author?.id || 'anonymous'}`} className="inline-flex items-center gap-2 hover:text-[#D4A359] transition">
+                  {poem.author?.avatar_url ? (
+                    <img
+                      src={poem.author.avatar_url}
+                      alt={poem.author.display_name || poem.author.username || '表現者'}
+                      className="w-6 h-6 rounded-full object-cover border border-[#D4A359]/40 shrink-0 bg-stone-100 dark:bg-stone-800 shadow-2xs"
+                    />
+                  ) : (
+                    <span className="w-6 h-6 rounded-full bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-[11px] font-serif flex items-center justify-center font-medium shrink-0 shadow-2xs">
+                      {(poem.author?.display_name || poem.author?.username || '無').slice(0, 1)}
+                    </span>
+                  )}
+                  <span>{poem.author?.display_name || poem.author?.username || '匿名'}</span>
                 </Link>
                 {poem.author?.role === 'advisor' && (
                   <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-[#D4A359]/20 text-[#8C621C] dark:text-[#E5B869] rounded tracking-wider font-sans">
@@ -473,7 +484,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                     主宰
                   </span>
                 )}
-              </p>
+              </div>
 
               <div className="flex items-center justify-end gap-3 text-xs font-sans text-stone-500 dark:text-stone-400">
                 <span>
@@ -638,9 +649,20 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                       <div className="flex items-center space-x-2">
                         <Link
                           href={`/authors/${review.reviewer?.id || 'anonymous'}`}
-                          className="font-medium text-[#1A1F2C] dark:text-stone-100 hover:text-[#D4A359] transition"
+                          className="inline-flex items-center gap-1.5 font-medium text-[#1A1F2C] dark:text-stone-100 hover:text-[#D4A359] transition"
                         >
-                          {review.reviewer?.display_name || review.reviewer?.username || '静かな読者'}
+                          {review.reviewer?.avatar_url ? (
+                            <img
+                              src={review.reviewer.avatar_url}
+                              alt={review.reviewer.display_name || review.reviewer.username || '読者'}
+                              className="w-5 h-5 rounded-full object-cover border border-[#D4A359]/30 shrink-0 bg-stone-100 dark:bg-stone-800"
+                            />
+                          ) : (
+                            <span className="w-5 h-5 rounded-full bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-[10px] font-serif flex items-center justify-center font-medium shrink-0">
+                              {(review.reviewer?.display_name || review.reviewer?.username || '無').slice(0, 1)}
+                            </span>
+                          )}
+                          <span>{review.reviewer?.display_name || review.reviewer?.username || '静かな読者'}</span>
                         </Link>
                         {isAuthorOfPoem && (
                           <span className="text-[10px] px-1.5 py-0.5 bg-[#D4A359]/20 text-[#8C621C] dark:text-[#E5B869] border border-[#D4A359]/40 rounded">
@@ -804,9 +826,20 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                                 <div className="flex items-center space-x-2">
                                   <Link
                                     href={`/authors/${reply.reviewer?.id || 'anonymous'}`}
-                                    className="font-medium text-[#1A1F2C] dark:text-stone-100 hover:text-[#D4A359] transition"
+                                    className="inline-flex items-center gap-1.5 font-medium text-[#1A1F2C] dark:text-stone-100 hover:text-[#D4A359] transition"
                                   >
-                                    {reply.reviewer?.display_name || reply.reviewer?.username || '読者'}
+                                    {reply.reviewer?.avatar_url ? (
+                                      <img
+                                        src={reply.reviewer.avatar_url}
+                                        alt={reply.reviewer.display_name || reply.reviewer.username || '読者'}
+                                        className="w-4 h-4 rounded-full object-cover border border-[#D4A359]/30 shrink-0 bg-stone-100 dark:bg-stone-800"
+                                      />
+                                    ) : (
+                                      <span className="w-4 h-4 rounded-full bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-[9px] font-serif flex items-center justify-center font-medium shrink-0">
+                                        {(reply.reviewer?.display_name || reply.reviewer?.username || '無').slice(0, 1)}
+                                      </span>
+                                    )}
+                                    <span>{reply.reviewer?.display_name || reply.reviewer?.username || '読者'}</span>
                                   </Link>
                                   {isReplyFromPoemAuthor && (
                                     <span className="text-[10px] px-1.5 py-0.5 bg-[#D4A359] text-white dark:text-[#1A1F2C] rounded font-medium">

@@ -53,12 +53,14 @@ interface DirectMessage {
     id: string
     username: string
     display_name: string | null
+    avatar_url?: string | null
     role: 'user' | 'advisor' | 'admin'
   }
   recipient?: {
     id: string
     username: string
     display_name: string | null
+    avatar_url?: string | null
     role: 'user' | 'advisor' | 'admin'
   }
 }
@@ -243,6 +245,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
               id,
               username,
               display_name,
+              avatar_url,
               role
             )
           `)
@@ -271,6 +274,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
               id,
               username,
               display_name,
+              avatar_url,
               role
             )
           `)
@@ -1387,9 +1391,20 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                               <span className="text-stone-500 dark:text-stone-400">差出人：</span>
                               <Link
                                 href={`/authors/${msg.sender?.username || msg.sender_id}`}
-                                className="text-stone-800 dark:text-stone-200 font-medium hover:text-[#D4A359] transition font-sans"
+                                className="inline-flex items-center gap-1.5 text-stone-800 dark:text-stone-200 font-medium hover:text-[#D4A359] transition font-sans"
                               >
-                                {senderName}
+                                {msg.sender?.avatar_url ? (
+                                  <img
+                                    src={msg.sender.avatar_url}
+                                    alt={senderName}
+                                    className="w-4 h-4 rounded-full object-cover border border-[#D4A359]/40 shrink-0 bg-stone-100 dark:bg-stone-800"
+                                  />
+                                ) : (
+                                  <span className="w-4 h-4 rounded-full bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-[9px] font-serif flex items-center justify-center font-medium shrink-0">
+                                    {(senderName || '無').slice(0, 1)}
+                                  </span>
+                                )}
+                                <span>{senderName}</span>
                               </Link>
                             </div>
 
@@ -1693,8 +1708,3 @@ export default function AuthorProfilePage({ params }: { params: Promise<{ userna
     </Suspense>
   )
 }
-
-
-
-
-

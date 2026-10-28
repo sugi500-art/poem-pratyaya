@@ -53,6 +53,7 @@ const DEFAULT_ANNOUNCEMENTS: Announcement[] = [
 interface Profile {
   display_name: string | null
   username: string | null
+  avatar_url?: string | null
 }
 
 interface PoemReviewItem {
@@ -124,7 +125,7 @@ export default function HomePage() {
               published_at,
               writing_mode,
               author_id,
-              profiles:author_id ( display_name, username )
+              profiles:author_id ( display_name, username, avatar_url )
             )
           `)
           .order('year', { ascending: false })
@@ -167,7 +168,7 @@ export default function HomePage() {
             published_at,
             writing_mode,
             author_id,
-            profiles:author_id ( display_name, username ),
+            profiles:author_id ( display_name, username, avatar_url ),
             reviews:poem_reviews ( id, created_at )
           `)
           .eq('status', 'published')
@@ -207,7 +208,7 @@ export default function HomePage() {
                   published_at,
                   writing_mode,
                   author_id,
-                  profiles:author_id ( display_name, username ),
+                  profiles:author_id ( display_name, username, avatar_url ),
                   reviews:poem_reviews ( id, created_at )
                 `)
                 .in('id', missingPoemIds)
@@ -378,9 +379,20 @@ export default function HomePage() {
                       <h1 className="text-xl sm:text-2xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
                         『{poem.title}』
                       </h1>
-                      <p className="text-xs text-stone-600 dark:text-stone-400 font-sans">
-                        作者：{poem.profiles?.display_name || '無名の表現者'}
-                      </p>
+                      <div className="flex items-center gap-1.5 text-xs text-stone-600 dark:text-stone-400 font-sans">
+                        {poem.profiles?.avatar_url ? (
+                          <img
+                            src={poem.profiles.avatar_url}
+                            alt={poem.profiles.display_name || poem.profiles.username || '表現者'}
+                            className="w-4 h-4 rounded-full object-cover border border-[#D4A359]/40 shrink-0 bg-stone-100 dark:bg-stone-800"
+                          />
+                        ) : (
+                          <span className="w-4 h-4 rounded-full bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-[9px] font-serif flex items-center justify-center font-medium shrink-0">
+                            {(poem.profiles?.display_name || poem.profiles?.username || '無').slice(0, 1)}
+                          </span>
+                        )}
+                        <span>{poem.profiles?.display_name || poem.profiles?.username || '無名の表現者'}</span>
+                      </div>
                     </div>
 
                     {/* 抜粋本文 */}
@@ -593,9 +605,20 @@ export default function HomePage() {
                     </div>
 
                     {/* 詩人名 */}
-                    <p className="text-xs text-stone-500 dark:text-stone-400 font-sans">
-                      作者：{poem.profiles?.display_name || poem.profiles?.username || '無名の表現者'}
-                    </p>
+                    <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400 font-sans">
+                      {poem.profiles?.avatar_url ? (
+                        <img
+                          src={poem.profiles.avatar_url}
+                          alt={poem.profiles.display_name || poem.profiles.username || '表現者'}
+                          className="w-4 h-4 rounded-full object-cover border border-[#D4A359]/40 shrink-0 bg-stone-100 dark:bg-stone-800"
+                        />
+                      ) : (
+                        <span className="w-4 h-4 rounded-full bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-[9px] font-serif flex items-center justify-center font-medium shrink-0">
+                          {(poem.profiles?.display_name || poem.profiles?.username || '無').slice(0, 1)}
+                        </span>
+                      )}
+                      <span>{poem.profiles?.display_name || poem.profiles?.username || '無名の表現者'}</span>
+                    </div>
 
                     {/* 抜粋本文 */}
                     <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-3 font-serif whitespace-pre-wrap">
@@ -687,12 +710,3 @@ export default function HomePage() {
     </div>
   )
 }
-
-
-
-
-
-
-
-
-

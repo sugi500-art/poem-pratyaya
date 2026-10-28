@@ -250,12 +250,22 @@ export default function PoemCatalogPage() {
 
                   {/* 詩人情報 */}
                   <div className="flex items-center gap-2 text-xs font-sans">
-                    <span className="text-stone-500 dark:text-stone-400">作者：</span>
                     <Link
                       href={`/authors/${poem.author?.username || poem.author?.id || 'anonymous'}`}
-                      className="text-stone-800 dark:text-stone-200 hover:text-[#D4A359] transition font-medium"
+                      className="inline-flex items-center gap-1.5 text-stone-800 dark:text-stone-200 hover:text-[#D4A359] transition font-medium"
                     >
-                      {poem.author?.display_name || poem.author?.username || '無名の表現者'}
+                      {poem.author?.avatar_url ? (
+                        <img
+                          src={poem.author.avatar_url}
+                          alt={poem.author.display_name || poem.author.username || '表現者'}
+                          className="w-4 h-4 rounded-full object-cover border border-[#D4A359]/40 shrink-0 bg-stone-100 dark:bg-stone-800"
+                        />
+                      ) : (
+                        <span className="w-4 h-4 rounded-full bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] text-[9px] font-serif flex items-center justify-center font-medium shrink-0">
+                          {(poem.author?.display_name || poem.author?.username || '無').slice(0, 1)}
+                        </span>
+                      )}
+                      <span>{poem.author?.display_name || poem.author?.username || '無名の表現者'}</span>
                     </Link>
                     {poem.author?.role === 'admin' && (
                       <span className="text-[10px] bg-[#1A1F2C] text-[#FBF9F5] dark:bg-[#D4A359] dark:text-[#1A1F2C] px-1.5 py-0.5 rounded font-sans">
@@ -303,5 +313,3 @@ export default function PoemCatalogPage() {
     </div>
   )
 }
-
-
