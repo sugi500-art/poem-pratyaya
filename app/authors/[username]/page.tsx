@@ -688,6 +688,11 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                       アドバイザー
                     </span>
                   )}
+                  {profile.role === 'tanka_advisor' && (
+                    <span className="text-[10px] font-sans px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 rounded font-medium">
+                      🎋 短歌助言者
+                    </span>
+                  )}
                   {profile.role === 'user' && (
                     <span className="text-[10px] font-sans px-2 py-0.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 rounded">
                       表現者

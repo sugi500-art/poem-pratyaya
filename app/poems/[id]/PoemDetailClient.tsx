@@ -479,6 +479,11 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                     アドバイザー
                   </span>
                 )}
+                {poem.author?.role === 'tanka_advisor' && (
+                  <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 rounded tracking-wider font-sans font-medium">
+                    🎋 短歌助言者
+                  </span>
+                )}
                 {poem.author?.role === 'admin' && (
                   <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-[#1A1F2C] text-[#FBF9F5] dark:bg-[#D4A359] dark:text-[#1A1F2C] rounded tracking-wider font-sans">
                     主宰
@@ -674,6 +679,11 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                             アドバイザー
                           </span>
                         )}
+                        {review.reviewer?.role === 'tanka_advisor' && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 rounded font-medium">
+                            🎋 短歌助言者
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-3 text-[#8C92A4] dark:text-stone-400">
@@ -849,6 +859,11 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                                   {reply.reviewer?.role === 'advisor' && (
                                     <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 rounded">
                                       アドバイザー
+                                    </span>
+                                  )}
+                                  {reply.reviewer?.role === 'tanka_advisor' && (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 rounded font-medium">
+                                      🎋 短歌助言者
                                     </span>
                                   )}
                                 </div>
