@@ -11,7 +11,7 @@ interface Profile {
   display_name: string | null
   bio: string | null
   avatar_url?: string | null
-  role: 'user' | 'advisor' | 'admin'
+  role: 'user' | 'advisor' | 'admin' | 'tanka_advisor' | string
   created_at: string
   accept_direct_messages?: boolean
 }
@@ -54,14 +54,14 @@ interface DirectMessage {
     username: string
     display_name: string | null
     avatar_url?: string | null
-    role: 'user' | 'advisor' | 'admin'
+    role: 'user' | 'advisor' | 'admin' | 'tanka_advisor' | string
   }
   recipient?: {
     id: string
     username: string
     display_name: string | null
     avatar_url?: string | null
-    role: 'user' | 'advisor' | 'admin'
+    role: 'user' | 'advisor' | 'admin' | 'tanka_advisor' | string
   }
 }
 

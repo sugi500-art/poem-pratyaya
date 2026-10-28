@@ -12,7 +12,7 @@ interface Profile {
   username: string;
   display_name: string | null;
   avatar_url?: string | null;
-  role: 'user' | 'advisor' | 'admin';
+  role: 'user' | 'advisor' | 'admin' | 'tanka_advisor' | string;
 }
 
 interface Poem {
