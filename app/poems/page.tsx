@@ -132,7 +132,7 @@ export default function PoemCatalogPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="題名・本文・詩人名で絞り込み..."
+              placeholder="題名・本文・作者名（表現者名）で絞り込み..."
               className="w-full px-3.5 py-2 bg-[#FBF9F5]/80 dark:bg-[#12161F]/80 border border-stone-300 dark:border-stone-700 rounded focus:outline-none focus:border-[#D4A359] text-xs font-serif text-[#1A1F2C] dark:text-stone-100 placeholder-stone-400"
             />
             {searchQuery && (
@@ -250,7 +250,7 @@ export default function PoemCatalogPage() {
 
                   {/* 詩人情報 */}
                   <div className="flex items-center gap-2 text-xs font-sans">
-                    <span className="text-stone-500 dark:text-stone-400">詩人：</span>
+                    <span className="text-stone-500 dark:text-stone-400">作者：</span>
                     <Link
                       href={`/authors/${poem.author?.username || poem.author?.id || 'anonymous'}`}
                       className="text-stone-800 dark:text-stone-200 hover:text-[#D4A359] transition font-medium"
@@ -303,4 +303,5 @@ export default function PoemCatalogPage() {
     </div>
   )
 }
+
 

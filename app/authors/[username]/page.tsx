@@ -686,7 +686,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                   )}
                   {profile.role === 'user' && (
                     <span className="text-[10px] font-sans px-2 py-0.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 rounded">
-                      詩人・読者
+                      表現者
                     </span>
                   )}
                 </div>
@@ -1693,6 +1693,7 @@ export default function AuthorProfilePage({ params }: { params: Promise<{ userna
     </Suspense>
   )
 }
+
 
 
 

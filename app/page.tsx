@@ -379,7 +379,7 @@ export default function HomePage() {
                         『{poem.title}』
                       </h1>
                       <p className="text-xs text-stone-600 dark:text-stone-400 font-sans">
-                        詩人：{poem.profiles?.display_name || '無名の表現者'}
+                        作者：{poem.profiles?.display_name || '無名の表現者'}
                       </p>
                     </div>
 
@@ -594,7 +594,7 @@ export default function HomePage() {
 
                     {/* 詩人名 */}
                     <p className="text-xs text-stone-500 dark:text-stone-400 font-sans">
-                      詩人：{poem.profiles?.display_name || poem.profiles?.username || '無名の表現者'}
+                      作者：{poem.profiles?.display_name || poem.profiles?.username || '無名の表現者'}
                     </p>
 
                     {/* 抜粋本文 */}
@@ -687,6 +687,7 @@ export default function HomePage() {
     </div>
   )
 }
+
 
 
 

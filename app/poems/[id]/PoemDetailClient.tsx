@@ -455,8 +455,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
           {/* 作品メタ情報 & 作者用操作ボタン */}
           <div className="mb-12 border-b border-[#E5E0D8] dark:border-stone-800 pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <span className="text-xs text-[#8C92A4] dark:text-stone-400 tracking-widest uppercase block mb-1 font-sans">Poem</span>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-wider text-[#1A1F2C] dark:text-stone-100">{poem.title}</h1>
+                            <h1 className="text-2xl md:text-3xl font-bold tracking-wider text-[#1A1F2C] dark:text-stone-100">{poem.title}</h1>
             </div>
 
             <div className="text-right space-y-2">
@@ -645,7 +644,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                         </Link>
                         {isAuthorOfPoem && (
                           <span className="text-[10px] px-1.5 py-0.5 bg-[#D4A359]/20 text-[#8C621C] dark:text-[#E5B869] border border-[#D4A359]/40 rounded">
-                            作者（詩人）
+                            作者
                           </span>
                         )}
                         {review.reviewer?.role === 'advisor' && (
@@ -811,7 +810,7 @@ export default function PoemDetailClient({ poemId }: { poemId: string }) {
                                   </Link>
                                   {isReplyFromPoemAuthor && (
                                     <span className="text-[10px] px-1.5 py-0.5 bg-[#D4A359] text-white dark:text-[#1A1F2C] rounded font-medium">
-                                      作者の応答（詩人）
+                                      作者の応答
                                     </span>
                                   )}
                                   {reply.reviewer?.role === 'advisor' && (
