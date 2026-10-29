@@ -48,3 +48,18 @@ export default function PageViewTracker() {
 
   return null
 }
+
+import PageViewTracker from '@/components/PageViewTracker' // ← インポートを追加
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="ja">
+      <body>
+        <PageViewTracker /> {/* ← <body> のすぐ下に追加 */}
+        <Header />
+        {children}
+        <Footer />
+      </body>
+    </html>
+  )
+}
