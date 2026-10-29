@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import Header from '@/components/Header'
+import PageViewTracker from '@/components/PageViewTracker'
 import './globals.css'
 
-const DOMAIN = 'poem-pratyaya.com'
+const DOMAIN = '[suspicious link removed]'
 const SITE_URL = `https://${DOMAIN}`
 const OGP_IMAGE = `${SITE_URL}/ogp-poem.png`
 
@@ -42,23 +43,9 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className="bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] min-h-screen antialiased">
+        <PageViewTracker />
         <Header />
         {children}
-      </body>
-    </html>
-  )
-}
-
-import PageViewTracker from '@/components/PageViewTracker' // ← インポートを追加
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="ja">
-      <body>
-        <PageViewTracker /> {/* ← <body> のすぐ下に追加 */}
-        <Header />
-        {children}
-        <Footer />
       </body>
     </html>
   )
