@@ -1,15 +1,10 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, Suspense } from 'react'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-/**
- * Poem pratyaya 静かなアクセス計測コンポーネント
- * アプリの layout.tsx または各ページに配置することで、
- * 主宰・アドバイザー用のアクセス統計（PV・閲覧者数）を自動記録します。
- */
-export default function PageViewTracker() {
+function PageViewTrackerInner() {
   const pathname = usePathname()
   const lastRecordedPath = useRef<string | null>(null)
   const supabase = createClient()
@@ -47,4 +42,12 @@ export default function PageViewTracker() {
   }, [pathname, supabase])
 
   return null
+}
+
+export default function PageViewTracker() {
+  return (
+    <Suspense fallback={null}>
+      <PageViewTrackerInner />
+    </Suspense>
+  )
 }
