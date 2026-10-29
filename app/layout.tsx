@@ -3,8 +3,7 @@ import Header from '@/components/Header'
 import PageViewTracker from '@/components/PageViewTracker'
 import './globals.css'
 
-const DOMAIN = '[suspicious link removed]'
-const SITE_URL = `https://${DOMAIN}`
+const SITE_URL = 'https://' + 'poem-pratyaya' + '.com'
 const OGP_IMAGE = `${SITE_URL}/ogp-poem.png`
 
 export const metadata: Metadata = {
