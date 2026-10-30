@@ -14,6 +14,7 @@ interface Profile {
   role: 'user' | 'advisor' | 'admin' | 'tanka_advisor' | string
   created_at: string
   accept_direct_messages?: boolean
+  email_notifications_enabled?: boolean
 }
 
 interface Poem {
@@ -119,6 +120,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
   const [editDisplayName, setEditDisplayName] = useState('')
   const [editBio, setEditBio] = useState('')
   const [editAcceptMessages, setEditAcceptMessages] = useState(true)
+  const [editEmailNotifications, setEditEmailNotifications] = useState(true)
   const [editAvatarUrl, setEditAvatarUrl] = useState('')
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [uploadAvatarError, setUploadAvatarError] = useState('')
@@ -179,6 +181,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
       setEditBio(profileData.bio || '')
       setEditAvatarUrl(profileData.avatar_url || '')
       setEditAcceptMessages(profileData.accept_direct_messages !== false)
+      setEditEmailNotifications(profileData.email_notifications_enabled !== false)
 
       const ownerCheck = user?.id === profileData.id
       setIsOwner(ownerCheck)
@@ -554,6 +557,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
           bio: editBio.trim() || null,
           avatar_url: editAvatarUrl.trim() || null,
           accept_direct_messages: editAcceptMessages,
+          email_notifications_enabled: editEmailNotifications,
           updated_at: new Date().toISOString(),
         })
         .eq('id', currentUser.id)
@@ -566,6 +570,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
         bio: editBio.trim() || null,
         avatar_url: editAvatarUrl.trim() || null,
         accept_direct_messages: editAcceptMessages,
+          email_notifications_enabled: editEmailNotifications,
       } : null)
 
       const successNotice = passwordChanged
@@ -751,6 +756,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                       setEditBio(profile.bio || '')
                       setEditAvatarUrl(profile.avatar_url || '')
                       setEditAcceptMessages(profile.accept_direct_messages !== false)
+        setEditEmailNotifications(profile.email_notifications_enabled !== false)
                       setNewPassword('')
                       setConfirmPassword('')
                       setShowPasswordSection(false)
@@ -888,7 +894,7 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
               </div>
 
               {/* 手紙の受け取り設定 */}
-              <div className="pt-2">
+              <div className="pt-2 space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-stone-700 dark:text-stone-300 select-none">
                   <input
                     type="checkbox"
@@ -901,6 +907,21 @@ function ProfileContent({ params }: { params: Promise<{ username: string }> | { 
                 <p className="text-[11px] text-stone-400 pl-6 mt-0.5">
                   ※ チェックを外すと、他の利用者からあなた宛に手紙を送ることができなくなります。
                 </p>
+
+                <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-stone-700 dark:text-stone-300 select-none">
+                    <input
+                      type="checkbox"
+                      checked={editEmailNotifications}
+                      onChange={(e) => setEditEmailNotifications(e.target.checked)}
+                      className="rounded border-stone-300 dark:border-stone-700 text-[#D4A359] focus:ring-[#D4A359] h-4 w-4"
+                    />
+                    <span className="font-medium">📧 鑑賞文・応答・手紙が届いた時にメールで通知を受け取る</span>
+                  </label>
+                  <p className="text-[11px] text-stone-400 pl-6 mt-0.5">
+                    ※ チェックを外すと、作品への新しい感応や応答が届いた際のメール案内が停止します（サイト内のベルマーク通知は引き続き確認できます）。
+                  </p>
+                </div>
               </div>
 
               {/* パスワード変更セクション（アコーディオン式） */}
