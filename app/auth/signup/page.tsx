@@ -47,7 +47,7 @@ export default function SignUpPage() {
       if (error) {
         setErrorMsg(error.message)
       } else {
-        setSuccessMsg('登録確認メールを送信しました。メールボックスをご確認ください。')
+        setSuccessMsg('アカウントの登録が完了しました！そのままログインしてご利用いただけます 🕯️')
       }
     } catch (err: any) {
       setErrorMsg('予期せぬエラーが発生しました。時間をおいて再度お試しください。')
