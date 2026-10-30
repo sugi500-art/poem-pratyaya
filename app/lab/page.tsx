@@ -79,18 +79,25 @@ const DEFAULT_CATEGORIES: ForumCategory[] = [
     display_order: 3,
   },
   {
+    id: 'public-correspondence',
+    slug: 'public-correspondence',
+    name: '公開文通（Open Letters）',
+    description: '特定または不特定の表現者へ宛てた手紙（公開書簡）や、言葉を通じた往復文通を行う部屋。個人間の深やかなやり取りでありながら、第三者も静かにその余韻を傍観・鑑賞できる対話空間です。',
+    display_order: 4,
+  },
+  {
     id: 'experimental',
     slug: 'experimental',
     name: '雑作・実験室（Experimental Lab）',
     description: '断片的なフレーズ、音響実験、試作段階の言葉の書き付け。',
-    display_order: 4,
+    display_order: 5,
   },
   {
     id: 'tea-room',
     slug: 'tea-room',
     name: '雑談・静かな茶室（Tea Room）',
     description: '日常の観察、創作に伴う思索、季節の移ろいや読書体験の共有。',
-    display_order: 5,
+    display_order: 6,
   },
 ]
 
@@ -1082,7 +1089,3 @@ export default function ForumLabClient() {
     </div>
   )
 }
-
-
-
-
