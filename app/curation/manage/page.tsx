@@ -154,23 +154,42 @@ export default function CurationManagePage() {
     }
   }
 
-  // アクセス統計の計算・取得関数
+  // アクセス統計の計算・取得関数（1000件上限突破対応）
   async function fetchAnalyticsData() {
     try {
       setLoadingAnalytics(true)
 
+      // 1. まず RPC 関数 (get_access_analytics) を呼び出し（サーバー側集計で1000件上限を完全回避）
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_access_analytics')
+
+      if (!rpcError && rpcData) {
+        setAnalytics({
+          monthlyPv: rpcData.monthlyPv || 0,
+          monthlyUu: rpcData.monthlyUu || 0,
+          todayPv: rpcData.todayPv || 0,
+          todayUu: rpcData.todayUu || 0,
+          topPages: rpcData.topPages || [],
+          dailyTrends: (rpcData.dailyTrends || []).map((item: any) => ({
+            dateStr: item.date_str || item.dateStr,
+            pv: item.pv || 0,
+            uu: item.uu || 0,
+          })),
+        })
+        return
+      }
+
+      // 2. RPC が未作成の場合のフォールバック (count: 'exact' を付与して集計)
       const now = new Date()
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-      
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
 
-      // 1. 今月の全アクセスログ取得 (直近1000件)
-      const { data: logs, error } = await supabase
+      // 今月の全アクセスログ取得 (count: 'exact' を付与)
+      const { data: logs, count: exactMonthlyPv, error } = await supabase
         .from('page_views')
-        .select('id, page_path, visitor_hash, created_at')
+        .select('id, page_path, visitor_hash, created_at', { count: 'exact' })
         .gte('created_at', startOfMonth)
         .order('created_at', { ascending: false })
-        .limit(2000)
+        .limit(50000)
 
       if (error) {
         console.warn('アクセスログ取得スキップ（テーブル未作成の可能性があります）:', error.message)
@@ -180,8 +199,8 @@ export default function CurationManagePage() {
 
       const allLogs = logs || []
 
-      // 今月の集計
-      const monthlyPv = allLogs.length
+      // 今月の集計（exact count が取得できている場合はそれを優先）
+      const monthlyPv = exactMonthlyPv ?? allLogs.length
       const monthlyUuSet = new Set(allLogs.map((l) => l.visitor_hash || l.id))
       const monthlyUu = monthlyUuSet.size
 
