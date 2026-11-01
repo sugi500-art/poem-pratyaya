@@ -25,6 +25,7 @@ interface MonthlyCuration {
 }
 
 interface AnalyticsData {
+  totalUsers: number
   monthlyPv: number
   monthlyUu: number
   todayPv: number
@@ -154,16 +155,17 @@ export default function CurationManagePage() {
     }
   }
 
-  // アクセス統計の計算・取得関数（1000件上限突破対応）
+  // アクセス統計の計算・取得関数（登録者数＋1000件上限突破対応）
   async function fetchAnalyticsData() {
     try {
       setLoadingAnalytics(true)
 
-      // 1. まず RPC 関数 (get_access_analytics) を呼び出し（サーバー側集計で1000件上限を完全回避）
+      // 1. まず RPC 関数 (get_access_analytics) を呼び出し
       const { data: rpcData, error: rpcError } = await supabase.rpc('get_access_analytics')
 
       if (!rpcError && rpcData) {
         setAnalytics({
+          totalUsers: rpcData.totalUsers ?? rpcData.total_users ?? 0,
           monthlyPv: rpcData.monthlyPv || 0,
           monthlyUu: rpcData.monthlyUu || 0,
           todayPv: rpcData.todayPv || 0,
@@ -178,10 +180,15 @@ export default function CurationManagePage() {
         return
       }
 
-      // 2. RPC が未作成の場合のフォールバック (count: 'exact' を付与して集計)
+      // 2. RPC 未作成時のフォールバック集計
       const now = new Date()
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+
+      // 総登録ユーザー数（profiles テーブルのカウント）
+      const { count: userCount } = await supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
 
       // 今月の全アクセスログ取得 (count: 'exact' を付与)
       const { data: logs, count: exactMonthlyPv, error } = await supabase
@@ -192,14 +199,22 @@ export default function CurationManagePage() {
         .limit(50000)
 
       if (error) {
-        console.warn('アクセスログ取得スキップ（テーブル未作成の可能性があります）:', error.message)
-        setAnalytics(null)
+        console.warn('アクセスログ取得スキップ:', error.message)
+        setAnalytics({
+          totalUsers: userCount || 0,
+          monthlyPv: 0,
+          monthlyUu: 0,
+          todayPv: 0,
+          todayUu: 0,
+          topPages: [],
+          dailyTrends: [],
+        })
         return
       }
 
       const allLogs = logs || []
 
-      // 今月の集計（exact count が取得できている場合はそれを優先）
+      // 今月の集計
       const monthlyPv = exactMonthlyPv ?? allLogs.length
       const monthlyUuSet = new Set(allLogs.map((l) => l.visitor_hash || l.id))
       const monthlyUu = monthlyUuSet.size
@@ -248,6 +263,7 @@ export default function CurationManagePage() {
       }))
 
       setAnalytics({
+        totalUsers: userCount || 0,
         monthlyPv,
         monthlyUu,
         todayPv,
@@ -391,7 +407,7 @@ export default function CurationManagePage() {
             アドバイザー執筆室 ＆ 聖域アクセス統計
           </h1>
           <p className="text-xs font-sans text-stone-600 dark:text-stone-400 max-w-2xl leading-relaxed">
-            ようこそ、{currentUser?.display_name} さん。ここでは月刊特選作品の鑑賞文の登録と、サイトの静かな読まれ方（アクセス数値・注目作品）を対外非公開で確認いただけます。
+            ようこそ、{currentUser?.display_name} さん。ここでは月刊特選作品の鑑賞文の登録と、サイトの静かな読まれ方（登録者数・アクセス数値・注目作品）を対外非公開で確認いただけます。
           </p>
         </header>
 
@@ -401,7 +417,7 @@ export default function CurationManagePage() {
             <div className="flex items-center gap-2.5">
               <span className="text-base text-[#D4A359]">📊</span>
               <h2 className="text-base font-medium text-[#1A1F2C] dark:text-stone-100 font-serif">
-                言葉の聖域 アクセス統計（閲覧数・訪問者数）
+                言葉の聖域 運営・アクセス統計（登録者数・閲覧数）
               </h2>
             </div>
             <button
@@ -417,10 +433,17 @@ export default function CurationManagePage() {
 
           {analytics ? (
             <div className="space-y-6 font-sans">
-              {/* 4つの主要数字カード */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {/* 5つの主要数字カード */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="p-4 bg-[#FBF9F5] dark:bg-[#1A1F2C] rounded-lg border border-[#D4A359]/40 dark:border-[#D4A359]/30 space-y-1 shadow-2xs">
+                  <span className="text-[11px] text-[#D4A359] dark:text-[#E5B869] font-medium block">全登録者数（会員数）</span>
+                  <p className="text-2xl font-serif text-[#1A1F2C] dark:text-stone-100 font-medium">
+                    {analytics.totalUsers.toLocaleString()} <span className="text-xs font-sans text-stone-400 font-normal">人</span>
+                  </p>
+                </div>
+
                 <div className="p-4 bg-[#FBF9F5] dark:bg-[#1A1F2C] rounded-lg border border-stone-200/60 dark:border-stone-800 space-y-1">
-                  <span className="text-[11px] text-stone-500 dark:text-stone-400 block">今月の総PV（ページ閲覧）</span>
+                  <span className="text-[11px] text-stone-500 dark:text-stone-400 block">今月の総PV（閲覧）</span>
                   <p className="text-2xl font-serif text-[#1A1F2C] dark:text-stone-100 font-medium">
                     {analytics.monthlyPv.toLocaleString()} <span className="text-xs font-sans text-stone-400 font-normal">回</span>
                   </p>
