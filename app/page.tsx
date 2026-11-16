@@ -424,19 +424,19 @@ export default function HomePage() {
           /* 推薦なし（初期状態）：身内褒め合いの印象を排した清らかな静寂の導入カード */
           <section className="bg-white/90 dark:bg-[#242B3B] p-8 sm:p-12 rounded-xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-5 text-center relative overflow-hidden backdrop-blur-sm">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#D4A359]/10 border border-[#D4A359]/30 rounded-full text-xs text-[#D4A359] font-sans font-medium mx-auto">
-              <span>🕯️</span>
-              <span>言葉の聖域 — Poem pratyaya へようこそ</span>
-            </div>
-            
-            <h1 className="text-2xl sm:text-3xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
-              言葉を単なる情報から解き放ち、<br className="hidden sm:inline" />
-              静寂と良心の中で響き合わせる場所
-            </h1>
+  　　　　　　　<span>🕯️</span>
+  　　　　　　　<span>言葉と対話の聖域 — 詩の投稿サイト Poem pratyaya</span>
+　　　　　　　</div>
 
-            <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 font-serif max-w-2xl mx-auto leading-relaxed pt-1">
-              Poem pratyaya（ポエム・プラティヤヤ）は、SNSのようなPV数や評価の競い合いを排し、<br className="hidden sm:inline" />
-              月3作の推敲制限と、縦書きの組版・肉声の響き（Vāc）によって言葉の尊厳を守る詩的空間です。
-            </p>
+　　　　　　　<h1 className="text-2xl sm:text-3xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
+  　　　　　　言葉を単なる情報から解き放ち、<br className="hidden sm:inline" />
+  　　　　　　静寂と良心の中で響き合わせる場所
+　　　　　　　</h1>
+
+　　　　　　　<p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 font-serif max-w-2xl mx-auto leading-relaxed pt-1">
+  　　　　　　Poem pratyaya（ポエム・プラティヤヤ）は、SNSのようなPV数や評価の競い合いを排した<strong>静かな詩の投稿サイト</strong>です。<br className="hidden sm:inline" />
+  　　　　　　月3作の推敲制限と、縦書きの組版・肉声の響き（Vāc）によって言葉の尊厳を守り、真摯な相互鑑賞を深めます。
+　　　　　　　</p>
 
             <div className="pt-3 flex flex-wrap justify-center gap-3 font-sans text-xs">
               <Link
