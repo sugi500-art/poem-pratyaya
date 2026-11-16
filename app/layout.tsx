@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import Header from '@/components/Header'
-import PageViewTracker from '@/components/PageViewTracker'
 import './globals.css'
 
-const SITE_URL = 'https://' + 'poem-pratyaya' + '.com'
+const DOMAIN = 'poem-pratyaya.com'
+const SITE_URL = `https://${DOMAIN}`
 const OGP_IMAGE = `${SITE_URL}/ogp-poem.png`
 
 export const metadata: Metadata = {
@@ -18,6 +18,7 @@ export const metadata: Metadata = {
     '短歌 投稿',
     '詩',
     '詩歌',
+    '文学',
     'Poem pratyaya',
     'ポエムプラティヤヤ',
   ],
@@ -44,15 +45,14 @@ export const metadata: Metadata = {
     images: [OGP_IMAGE],
   },
 }
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return (
-    <html lang="ja">
+  return (\n    <html lang="ja">
       <body className="bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] min-h-screen antialiased">
-        <PageViewTracker />
         <Header />
         {children}
       </body>

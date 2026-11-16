@@ -335,8 +335,41 @@ export default function HomePage() {
     <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] font-serif py-12 px-4 sm:px-6 lg:px-8 selection:bg-[#D4A359]/20 transition-colors duration-300">
       <div className="max-w-5xl mx-auto space-y-16">
 
-        {/* ヒーローエリア：月刊推薦詩篇（推薦が存在する場合のみ静かに立ち現れる） */}
-        {featuredPoems.length > 0 ? (
+        {/* 1. 言葉と対話の聖域 導入ヒーローカード（詩の投稿サイト・常に最上部に掲示） */}
+        <section className="bg-white/90 dark:bg-[#242B3B] p-8 sm:p-12 rounded-xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-5 text-center relative overflow-hidden backdrop-blur-sm">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#D4A359]/10 border border-[#D4A359]/30 rounded-full text-xs text-[#D4A359] font-sans font-medium mx-auto">
+            <span>🕯️</span>
+            <span>言葉と対話の聖域 — 詩の投稿サイト Poem pratyaya</span>
+          </div>
+          
+          <h1 className="text-2xl sm:text-3xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
+            言葉を単なる情報から解き放ち、<br className="hidden sm:inline" />
+            静寂と良心の中で響き合わせる場所
+          </h1>
+
+          <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 font-serif max-w-2xl mx-auto leading-relaxed pt-1">
+            Poem pratyaya（ポエム・プラティヤヤ）は、SNSのようなPV数や評価の競い合いを排した<strong>静かな詩の投稿サイト</strong>です。<br className="hidden sm:inline" />
+            月3作の推敲制限と、縦書きの組版・肉声の響き（Vāc）によって言葉の尊厳を守り、真摯な相互鑑賞を深めます。
+          </p>
+
+          <div className="pt-3 flex flex-wrap justify-center gap-3 font-sans text-xs">
+            <Link
+              href="/poems"
+              className="px-5 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded hover:opacity-90 transition shadow-sm font-medium"
+            >
+              詩篇目録を訪ねる
+            </Link>
+            <Link
+              href="/poems/new"
+              className="px-5 py-2.5 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 rounded hover:bg-stone-50 dark:hover:bg-stone-800 transition"
+            >
+              一篇を推敲・投稿する（月3作）
+            </Link>
+          </div>
+        </section>
+
+        {/* 2. 月刊推薦詩篇（キュレーション作品が選定されている場合に静かに登場） */}
+        {featuredPoems.length > 0 && (
           <section className="bg-white/90 dark:bg-[#242B3B] p-8 sm:p-12 rounded-xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-6 relative overflow-hidden backdrop-blur-sm animate-in fade-in duration-500">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-stone-100 dark:border-stone-800 pb-4 gap-2">
               <div className="flex items-center gap-2">
@@ -376,9 +409,9 @@ export default function HomePage() {
                     </div>
 
                     <div className="space-y-1">
-                      <h1 className="text-xl sm:text-2xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
+                      <h2 className="text-xl sm:text-2xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100 font-serif">
                         『{poem.title}』
-                      </h1>
+                      </h2>
                       <div className="flex items-center gap-1.5 text-xs text-stone-600 dark:text-stone-400 font-sans">
                         {poem.profiles?.avatar_url ? (
                           <img
@@ -420,42 +453,10 @@ export default function HomePage() {
               ))}
             </div>
           </section>
-        ) : (
-          /* 推薦なし（初期状態）：身内褒め合いの印象を排した清らかな静寂の導入カード */
-          <section className="bg-white/90 dark:bg-[#242B3B] p-8 sm:p-12 rounded-xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-5 text-center relative overflow-hidden backdrop-blur-sm">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#D4A359]/10 border border-[#D4A359]/30 rounded-full text-xs text-[#D4A359] font-sans font-medium mx-auto">
-  　　　　　　　<span>🕯️</span>
-  　　　　　　　<span>言葉と対話の聖域 — 詩の投稿サイト Poem pratyaya</span>
-　　　　　　　</div>
-
-　　　　　　　<h1 className="text-2xl sm:text-3xl font-normal tracking-wide text-[#1A1F2C] dark:text-stone-100">
-  　　　　　　言葉を単なる情報から解き放ち、<br className="hidden sm:inline" />
-  　　　　　　静寂と良心の中で響き合わせる場所
-　　　　　　　</h1>
-
-　　　　　　　<p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 font-serif max-w-2xl mx-auto leading-relaxed pt-1">
-  　　　　　　Poem pratyaya（ポエム・プラティヤヤ）は、SNSのようなPV数や評価の競い合いを排した<strong>静かな詩の投稿サイト</strong>です。<br className="hidden sm:inline" />
-  　　　　　　月3作の推敲制限と、縦書きの組版・肉声の響き（Vāc）によって言葉の尊厳を守り、真摯な相互鑑賞を深めます。
-　　　　　　　</p>
-
-            <div className="pt-3 flex flex-wrap justify-center gap-3 font-sans text-xs">
-              <Link
-                href="/poems"
-                className="px-5 py-2.5 bg-[#1A1F2C] dark:bg-[#D4A359] text-[#FBF9F5] dark:text-[#1A1F2C] rounded hover:opacity-90 transition shadow-sm font-medium"
-              >
-                詩篇目録を訪ねる
-              </Link>
-              <Link
-                href="/poems/new"
-                className="px-5 py-2.5 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 rounded hover:bg-stone-50 dark:hover:bg-stone-800 transition"
-              >
-                一篇を推敲・投稿する（月3作）
-              </Link>
-            </div>
-          </section>
         )}
 
         {/* お知らせセクション：聖域からの便り（Pratyaya Lab連動） */}
+        
         <section className="bg-white/90 dark:bg-[#242B3B]/90 rounded-xl border border-[#E2DDD5] dark:border-stone-800 p-5 sm:p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-stone-200/60 dark:border-stone-800 pb-3">
             <div className="flex items-center gap-2">
