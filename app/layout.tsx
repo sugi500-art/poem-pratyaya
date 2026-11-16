@@ -18,7 +18,6 @@ export const metadata: Metadata = {
     '短歌 投稿',
     '詩',
     '詩歌',
-    '文学',
     'Poem pratyaya',
     'ポエムプラティヤヤ',
   ],
@@ -51,7 +50,8 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  return (\n    <html lang="ja">
+  return (
+    <html lang="ja">
       <body className="bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] min-h-screen antialiased">
         <Header />
         {children}
