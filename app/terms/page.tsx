@@ -47,7 +47,7 @@ export default function TermsPage() {
               <a href="#article-4" className="block hover:text-[#D4A359] transition">第四条（応答の倫理）</a>
               <a href="#article-5" className="block hover:text-[#D4A359] transition">第五条（運営の責任）</a>
               <a href="#article-6" className="block hover:text-[#D4A359] transition">第六条（免責事項）</a>
-              <a href="#article-7" className="block hover:text-[#D4A359] transition font-medium text-stone-700 dark:text-stone-300">
+              <a href="#article-7" className="block hover:text-[#D4A359] transition">
                 第七条（個人運営とデータ保全）
               </a>
               <a href="#conclusion" className="block hover:text-[#D4A359] transition">結び</a>
