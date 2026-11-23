@@ -168,18 +168,15 @@ export default function TermsPage() {
               </p>
             </section>
 
-            {/* 第七条（新規追加条項） */}
-            <section id="article-7" className="scroll-mt-24 space-y-4 p-6 bg-[#FDFBF7] dark:bg-[#242B3B] rounded-lg border border-[#D4A359]/40 dark:border-[#D4A359]/30 shadow-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-[#D4A359]">📜</span>
-                <h2 className="text-lg sm:text-xl text-[#1A1F2C] dark:text-stone-100 font-normal">
-                  第七条（個人運営の有限性と作品データの保全について）
-                </h2>
-              </div>
-              <p className="leading-loose text-stone-800 dark:text-stone-200">
+            {/* 第七条 */}
+            <section id="article-7" className="scroll-mt-24 space-y-4">
+              <h2 className="text-xl text-[#1A1F2C] dark:text-stone-100 border-b border-stone-200/80 dark:border-stone-800 pb-2 font-normal">
+                第七条（個人運営の有限性と作品データの保全について）
+              </h2>
+              <p className="leading-loose">
                 当プラットフォームは、主宰者個人の責任と労力によって運営される私的な場です。通信環境やサーバーの不具合、あるいは将来的な運営方針の変更や終了等により、投稿データが永続的に保持されることは保証いたしかねます。大切な作品や鑑賞文の記録は、必ず投稿者ご自身の手元にも控え（バックアップ）を残したうえでご利用ください。
               </p>
-              <p className="leading-loose text-stone-800 dark:text-stone-200">
+              <p className="leading-loose">
                 また、運営上の重要な判断や変更が生じる場合には、主宰者より把握している事実と法的責任の範囲に基づき、誠実にお知らせいたします。
               </p>
             </section>
