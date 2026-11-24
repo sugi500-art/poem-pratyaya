@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Header from '@/components/Header'
+import PageViewTracker from '@/components/PageViewTracker'
 import './globals.css'
 
 const DOMAIN = 'poem-pratyaya.com'
@@ -53,6 +54,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className="bg-[#FBF9F5] dark:bg-[#1A1F2C] text-[#1A1F2C] dark:text-[#EAE8E3] min-h-screen antialiased">
+        <PageViewTracker />
         <Header />
         {children}
       </body>
